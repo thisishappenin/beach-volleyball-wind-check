@@ -3,7 +3,7 @@ import { Plus, RefreshCw, LogOut } from 'lucide-react'
 import LocationCard from './components/LocationCard'
 import AddLocationModal from './components/AddLocationModal'
 import AuthScreen from './components/AuthScreen'
-import { loadLocations, addLocation, removeLocation } from './lib/storage'
+import { loadLocations, addLocation, removeLocation, updateLocation } from './lib/storage'
 import { fetchWeather } from './lib/openmeteo'
 import { getSession, logout } from './lib/auth'
 
@@ -70,6 +70,11 @@ export default function App() {
     setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
   }
 
+  const handleSetBearing = (id, newBearing) => {
+    updateLocation(session.accountId, id, { court_bearing_deg: newBearing })
+    setLocations(prev => prev.map(l => l.id === id ? { ...l, court_bearing_deg: newBearing } : l))
+  }
+
   const handleLogout = () => {
     logout()
     setSession(null)
@@ -127,6 +132,7 @@ export default function App() {
               hourlyData={weather[loc.id]}
               loading={loadingIds.has(loc.id)}
               onDelete={handleDelete}
+              onSetBearing={handleSetBearing}
             />
           ))}
         </div>

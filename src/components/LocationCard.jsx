@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { Trash2, ChevronDown, ChevronUp } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, Compass } from 'lucide-react'
 import { scoreHour, windDirectionLabel } from '../lib/scoring'
+import CourtMapModal from './CourtMapModal'
 
 const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
 const SLOT_BG = {
@@ -69,8 +70,9 @@ function SlotBadge({ score, label }) {
   )
 }
 
-export default function LocationCard({ location, hourlyData, loading, onDelete }) {
+export default function LocationCard({ location, hourlyData, loading, onDelete, onSetBearing }) {
   const [expanded, setExpanded] = useState(false)
+  const [showMap, setShowMap] = useState(false)
 
   if (loading) {
     return (
@@ -107,14 +109,31 @@ export default function LocationCard({ location, hourlyData, loading, onDelete }
       {/* Header */}
       <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between">
         <h2 className="font-semibold text-slate-800">{location.name}</h2>
-        <button
-          onClick={() => onDelete(location.id)}
-          className="text-slate-300 hover:text-red-400 transition-colors"
-          title="Remove"
-        >
-          <Trash2 size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => setShowMap(true)}
+            className="p-1 text-slate-300 hover:text-sky-500 transition-colors"
+            title="Set court direction"
+          >
+            <Compass size={14} />
+          </button>
+          <button
+            onClick={() => onDelete(location.id)}
+            className="p-1 text-slate-300 hover:text-red-400 transition-colors"
+            title="Remove"
+          >
+            <Trash2 size={14} />
+          </button>
+        </div>
       </div>
+
+      {showMap && (
+        <CourtMapModal
+          location={location}
+          onSave={onSetBearing}
+          onClose={() => setShowMap(false)}
+        />
+      )}
 
       {/* Column labels */}
       <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 border-b border-slate-100">
