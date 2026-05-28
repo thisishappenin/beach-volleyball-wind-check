@@ -1,9 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, RefreshCw } from 'lucide-react'
+import { Plus, RefreshCw, LogOut } from 'lucide-react'
 import LocationCard from './components/LocationCard'
 import AddLocationModal from './components/AddLocationModal'
+import AuthScreen from './components/AuthScreen'
 import { loadLocations, addLocation, removeLocation } from './lib/storage'
 import { fetchWeather } from './lib/openmeteo'
+import { getSession, logout } from './lib/auth'
 
 const SAMPLE_LOCATIONS = [
   { id: 'sample-1', name: 'Newland Beach', latitude: 33.6793, longitude: -118.0201, court_bearing_deg: 135, notes: null, active: true },
@@ -11,7 +13,12 @@ const SAMPLE_LOCATIONS = [
   { id: 'sample-3', name: 'Corona del Mar Beach', latitude: 33.5927, longitude: -117.8699, court_bearing_deg: 10, notes: null, active: true },
 ]
 
+function storageKey(accountId) {
+  return `beach_locations_v2_${accountId}`
+}
+
 export default function App() {
+  const [session, setSession] = useState(() => getSession())
   const [locations, setLocations] = useState([])
   const [weather, setWeather] = useState({})
   const [loadingIds, setLoadingIds] = useState(new Set())
@@ -19,13 +26,14 @@ export default function App() {
   const [lastRefresh, setLastRefresh] = useState(null)
 
   useEffect(() => {
-    let locs = loadLocations()
+    if (!session) return
+    let locs = loadLocations(session.accountId)
     if (locs.length === 0) {
       locs = SAMPLE_LOCATIONS
-      localStorage.setItem('beach_locations_v2', JSON.stringify(locs))
+      localStorage.setItem(storageKey(session.accountId), JSON.stringify(locs))
     }
     setLocations(locs.filter(l => l.active))
-  }, [])
+  }, [session?.accountId])
 
   const fetchAllWeather = useCallback(async (locs) => {
     setLoadingIds(new Set(locs.map(l => l.id)))
@@ -51,18 +59,29 @@ export default function App() {
   }, [locations.map(l => l.id).join(',')])
 
   const handleAdd = (locData) => {
-    const newLoc = addLocation(locData)
+    const newLoc = addLocation(session.accountId, locData)
     setLocations(prev => [...prev, newLoc])
     setShowAdd(false)
   }
 
   const handleDelete = (id) => {
-    removeLocation(id)
+    removeLocation(session.accountId, id)
     setLocations(prev => prev.filter(l => l.id !== id))
     setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
   }
 
+  const handleLogout = () => {
+    logout()
+    setSession(null)
+    setLocations([])
+    setWeather({})
+  }
+
   const anyLoading = loadingIds.size > 0
+
+  if (!session) {
+    return <AuthScreen onAuth={setSession} />
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 to-blue-50">
@@ -72,14 +91,24 @@ export default function App() {
             <h1 className="text-2xl font-bold text-slate-800">🏐 Beach Wind Check</h1>
             <p className="text-xs text-slate-400 mt-0.5">8–11 AM · 4–7 PM · last 7 + next 7 days</p>
           </div>
-          <button
-            onClick={() => fetchAllWeather(locations)}
-            disabled={anyLoading}
-            className="p-2 rounded-full text-slate-400 hover:text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-40"
-            title="Refresh weather"
-          >
-            <RefreshCw size={18} className={anyLoading ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-slate-500 hidden sm:block">{session.username}</span>
+            <button
+              onClick={() => fetchAllWeather(locations)}
+              disabled={anyLoading}
+              className="p-2 rounded-full text-slate-400 hover:text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-40"
+              title="Refresh weather"
+            >
+              <RefreshCw size={18} className={anyLoading ? 'animate-spin' : ''} />
+            </button>
+            <button
+              onClick={handleLogout}
+              className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+              title="Sign out"
+            >
+              <LogOut size={18} />
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 gap-4 items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
