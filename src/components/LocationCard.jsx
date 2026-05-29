@@ -54,28 +54,46 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Pastel spectrum — zone boundaries always visible, tick marks position
-// Scale: 20 mph max. Boundaries at 40% (8mph), 55% (11mph), 80% (16mph)
-const SPECTRUM_BG = 'linear-gradient(to right, #86efac 0%, #86efac 40%, #fde68a 40%, #fde68a 55%, #fca5a5 55%, #fca5a5 80%, #94a3b8 80%)'
-const SPECTRUM_MAX = 20
+// Zoomed spectrum: ±ZOOM mph window centered on current effective wind.
+// Tick is always at 50%; zone colors shift so you see nearby boundaries.
+const ZOOM = 4
+
+function zoneColor(mph) {
+  if (mph < 8)  return '#86efac'  // green-300
+  if (mph < 11) return '#fde68a'  // amber-200
+  if (mph < 16) return '#fca5a5'  // red-300
+  return '#cbd5e1'                 // slate-300
+}
+
+function zoomedGradient(eff) {
+  const lo = eff - ZOOM
+  const hi = eff + ZOOM
+  const span = ZOOM * 2
+  const pct = (mph) => ((mph - lo) / span * 100).toFixed(1)
+  const stops = [`${zoneColor(lo)} 0%`]
+  for (const b of [8, 11, 16]) {
+    if (b > lo && b < hi) {
+      stops.push(`${zoneColor(b - 0.001)} ${pct(b)}%`)
+      stops.push(`${zoneColor(b)} ${pct(b)}%`)
+    }
+  }
+  stops.push(`${zoneColor(hi)} 100%`)
+  return `linear-gradient(to right, ${stops.join(', ')})`
+}
 
 function SlotBadge({ score }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
   const eff = score.effectiveWind ?? score.mph
-  const tickPct = Math.min(eff / SPECTRUM_MAX, 1) * 100
   return (
     <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
       <p className="text-sm font-bold leading-none">
         {score.mph}
         <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
       </p>
-      <div className="mt-2 h-1.5 rounded-full overflow-hidden relative" style={{ background: SPECTRUM_BG }}>
-        <div className="absolute inset-0" style={{
-          background: `linear-gradient(to right, transparent ${tickPct}%, rgba(255,255,255,0.65) ${tickPct}%)`
-        }} />
-        <div className="absolute top-0 h-full w-[2px] bg-white/90" style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
+      <div className="mt-2 h-1.5 rounded-full overflow-hidden relative" style={{ background: zoomedGradient(eff) }}>
+        <div className="absolute top-0 h-full w-[2px] bg-white/90" style={{ left: '50%', transform: 'translateX(-50%)' }} />
       </div>
     </div>
   )
