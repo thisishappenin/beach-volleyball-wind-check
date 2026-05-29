@@ -211,7 +211,7 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
               } ${bothBlackout && !isPast ? 'bg-slate-100' : ''}`}
             >
               <div className="w-24 shrink-0">
-                <p className={`text-xs font-medium ${isToday ? 'text-sky-600' : 'text-slate-500'}`}>
+                <p className={`text-xs font-semibold ${isToday ? 'text-sky-600' : 'text-slate-700'}`}>
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
