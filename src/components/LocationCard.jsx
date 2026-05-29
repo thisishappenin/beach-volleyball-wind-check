@@ -55,27 +55,16 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-const BAR_TRACK = {
-  good: 'bg-black/10', playable: 'bg-black/10', skip: 'bg-black/10', blackout: 'bg-white/20',
-}
-const BAR_FILL = {
-  good: 'bg-green-500', playable: 'bg-yellow-500', skip: 'bg-red-400', blackout: 'bg-white/70',
-}
-// Position within each verdict band (effective wind mph)
-const BAND_RANGE = {
-  good:     [0,  8],
-  playable: [8,  11],
-  skip:     [11, 16],
-  blackout: [16, 30],
-}
+// Spectrum: green 0-8 mph, yellow 8-11, red 11-16, near-black 16-20+
+const SPECTRUM = 'linear-gradient(to right, #22c55e 0%, #22c55e 40%, #eab308 40%, #eab308 55%, #ef4444 55%, #ef4444 80%, #1e293b 80%)'
+const SPECTRUM_MAX = 20
 
 function SlotBadge({ score, label }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-center text-[10px] text-slate-300">—</div>
   }
-  const [bandMin, bandMax] = BAND_RANGE[score.verdict]
   const eff = score.effectiveWind ?? score.mph
-  const barPct = Math.min(Math.max((eff - bandMin) / (bandMax - bandMin), 0), 1) * 100
+  const tickPct = Math.min(eff / SPECTRUM_MAX, 1) * 100
   return (
     <div className={`flex-1 rounded-lg border px-2 pt-1.5 pb-2 ${SLOT_BG[score.verdict]}`}>
       <div className="flex items-center gap-1">
@@ -85,8 +74,8 @@ function SlotBadge({ score, label }) {
           <p className="text-xs font-medium leading-none mt-0.5">{score.mph} · g{score.gust} · {score.dir}</p>
         </div>
       </div>
-      <div className={`mt-1.5 h-1 rounded-full ${BAR_TRACK[score.verdict]}`}>
-        <div className={`h-full rounded-full ${BAR_FILL[score.verdict]}`} style={{ width: `${barPct}%` }} />
+      <div className="mt-1.5 relative h-1.5 rounded-full overflow-hidden" style={{ background: SPECTRUM }}>
+        <div className="absolute top-0 h-full w-px bg-white/90" style={{ left: `${tickPct}%` }} />
       </div>
     </div>
   )
