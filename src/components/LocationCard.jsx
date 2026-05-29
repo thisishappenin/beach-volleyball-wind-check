@@ -54,46 +54,31 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Zoomed spectrum: ±ZOOM mph window centered on current effective wind.
-// Tick is always at 50%; zone colors shift so you see nearby boundaries.
-const ZOOM = 4
-
-function zoneColor(mph) {
-  if (mph < 8)  return '#86efac'  // green-300
-  if (mph < 11) return '#fde68a'  // amber-200
-  if (mph < 16) return '#fca5a5'  // red-300
-  return '#cbd5e1'                 // slate-300
-}
-
-function zoomedGradient(eff) {
-  const lo = eff - ZOOM
-  const hi = eff + ZOOM
-  const span = ZOOM * 2
-  const pct = (mph) => ((mph - lo) / span * 100).toFixed(1)
-  const stops = [`${zoneColor(lo)} 0%`]
-  for (const b of [8, 11, 16]) {
-    if (b > lo && b < hi) {
-      stops.push(`${zoneColor(b - 0.001)} ${pct(b)}%`)
-      stops.push(`${zoneColor(b)} ${pct(b)}%`)
-    }
-  }
-  stops.push(`${zoneColor(hi)} 100%`)
-  return `linear-gradient(to right, ${stops.join(', ')})`
-}
+// Normal (good/playable/skip): green→yellow→red over 0–16 mph
+// Blackout: yellow→red→dark over 8–26 mph
+// Boundaries: 8 mph = 50% normal, 11 mph = 68.8% normal / 16.7% blackout, 16 mph = 44.4% blackout
+const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 50%, #fde68a 50%, #fde68a 68.8%, #fca5a5 68.8%, #fca5a5 100%)'
+const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 16.7%, #fca5a5 16.7%, #fca5a5 44.4%, #cbd5e1 44.4%)'
 
 function SlotBadge({ score }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
   const eff = score.effectiveWind ?? score.mph
+  const isBlackout = score.verdict === 'blackout'
+  const tickPct = isBlackout
+    ? Math.min(Math.max((eff - 8) / 18, 0), 1) * 100
+    : Math.min(eff / 16, 1) * 100
   return (
     <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
       <p className="text-sm font-bold leading-none">
         {score.mph}
         <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
       </p>
-      <div className="mt-2 h-3 rounded-full overflow-hidden relative" style={{ background: zoomedGradient(eff) }}>
-        <div className="absolute top-0 h-full w-[3px] bg-white/90" style={{ left: '50%', transform: 'translateX(-50%)' }} />
+      <div className="mt-2 h-3 rounded-full overflow-hidden relative"
+           style={{ background: isBlackout ? BLACKOUT_GRADIENT : NORMAL_GRADIENT }}>
+        <div className="absolute top-0 h-full w-[3px] bg-white/90"
+             style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
       </div>
     </div>
   )
