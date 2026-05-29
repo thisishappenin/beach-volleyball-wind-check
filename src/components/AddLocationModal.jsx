@@ -93,11 +93,11 @@ export default function AddLocationModal({ onAdd, onClose }) {
         <div className="overflow-y-auto p-5 space-y-4">
           {/* Search */}
           <div>
-            <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Location search</label>
+            <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Find location</label>
             <div className="flex gap-2 mt-1">
               <input
                 className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                placeholder="e.g. Huntington Beach"
+                placeholder="33.6553, -118.0018 or Huntington Beach"
                 value={query}
                 onChange={e => { setQuery(e.target.value); setSelected(null); setPinLat(null); setPinLng(null) }}
                 onKeyDown={handleKeyDown}
@@ -111,6 +111,9 @@ export default function AddLocationModal({ onAdd, onClose }) {
                 {searching ? <Loader2 size={16} className="animate-spin" /> : <Search size={16} />}
               </button>
             </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Paste coordinates for a precise drop — right-click any spot in Google Maps to copy them. Or search by name and drag the pin.
+            </p>
             {searchError && <p className="text-xs text-red-500 mt-1">{searchError}</p>}
           </div>
 
