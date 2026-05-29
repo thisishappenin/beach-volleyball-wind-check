@@ -25,17 +25,19 @@ export function scoreHour(hourData, location) {
     effective_wind = sustained_mph * (crosswind_factor + parallel_factor)
   }
 
-  if (gust_mph - sustained_mph >= 8) {
+  // Gusts are raw 10m model values (no height correction). Trigger spikiness penalty
+  // sooner since the gap between corrected sustained and raw gust is inherently wider.
+  if (gust_mph - sustained_mph >= 5) {
     effective_wind += 2
     reasons.push('gusty')
   }
 
   let verdict
-  if (effective_wind < 8 && gust_mph < 13) {
+  if (effective_wind < 8 && gust_mph < 15) {
     verdict = 'good'
-  } else if (effective_wind < 11 && gust_mph < 17) {
+  } else if (effective_wind < 11 && gust_mph < 18) {
     verdict = 'playable'
-  } else if (effective_wind < 16 && gust_mph < 22) {
+  } else if (effective_wind < 16 && gust_mph < 24) {
     verdict = 'skip'
   } else {
     verdict = 'blackout'
