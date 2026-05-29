@@ -2,22 +2,15 @@ import { useState, useCallback } from 'react'
 import { X, Search, Loader2, MapPin, Compass } from 'lucide-react'
 import { geocodeSearch } from '../lib/openmeteo'
 import CourtMapModal from './CourtMapModal'
-
-function bearingLabel(deg) {
-  const labels = {
-    0: 'N–S', 10: 'NNE–SSW', 20: 'NNE–SSW', 30: 'NE–SW', 40: 'NE–SW',
-    45: 'NE–SW', 50: 'ENE–WSW', 60: 'ENE–WSW', 70: 'ENE–WSW', 80: 'E–W',
-    90: 'E–W', 100: 'E–W', 110: 'ESE–WNW', 120: 'ESE–WNW', 130: 'SE–NW',
-    135: 'SE–NW', 140: 'SE–NW', 150: 'SSE–NNW', 160: 'SSE–NNW', 170: 'SSE–NNW', 180: 'N–S',
-  }
-  return labels[deg] ?? `${deg}°`
-}
+import CourtPinMap from './CourtPinMap'
 
 export default function AddLocationModal({ onAdd, onClose }) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState([])
   const [searching, setSearching] = useState(false)
   const [selected, setSelected] = useState(null)
+  const [pinLat, setPinLat] = useState(null)
+  const [pinLng, setPinLng] = useState(null)
   const [name, setName] = useState('')
   const [bearing, setBearing] = useState('')
   const [showBearingMap, setShowBearingMap] = useState(false)
@@ -40,6 +33,8 @@ export default function AddLocationModal({ onAdd, onClose }) {
     if (coords) {
       const r = { latitude: coords.lat, longitude: coords.lon, name: '', admin1: null }
       setSelected(r)
+      setPinLat(coords.lat)
+      setPinLng(coords.lon)
       setName('')
       setResults([])
       return
@@ -63,6 +58,8 @@ export default function AddLocationModal({ onAdd, onClose }) {
 
   const handleSelect = (r) => {
     setSelected(r)
+    setPinLat(r.latitude)
+    setPinLng(r.longitude)
     setName(r.name + (r.admin1 ? `, ${r.admin1}` : ''))
     setResults([])
     setQuery(r.name)
@@ -73,8 +70,8 @@ export default function AddLocationModal({ onAdd, onClose }) {
     if (!selected) return
     onAdd({
       name: name.trim() || selected.name,
-      latitude: selected.latitude,
-      longitude: selected.longitude,
+      latitude: pinLat,
+      longitude: pinLng,
       court_bearing_deg: bearing !== '' ? parseFloat(bearing) : null,
       notes: notes.trim() || null,
     })
@@ -84,25 +81,25 @@ export default function AddLocationModal({ onAdd, onClose }) {
 
   return (
     <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
+      <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100">
+        <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
           <h2 className="font-semibold text-slate-800 text-lg">Add a beach</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600">
             <X size={20} />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="overflow-y-auto p-5 space-y-4">
           {/* Search */}
           <div>
             <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Location search</label>
             <div className="flex gap-2 mt-1">
               <input
                 className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
-                placeholder="e.g. Corona del Mar"
+                placeholder="e.g. Huntington Beach"
                 value={query}
-                onChange={e => { setQuery(e.target.value); setSelected(null) }}
+                onChange={e => { setQuery(e.target.value); setSelected(null); setPinLat(null); setPinLng(null) }}
                 onKeyDown={handleKeyDown}
               />
               <button
@@ -136,10 +133,10 @@ export default function AddLocationModal({ onAdd, onClose }) {
             </div>
           )}
 
-          {/* Only show rest of form once a location is selected */}
+          {/* Form — shown once a location is selected */}
           {selected && (
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Name override */}
+              {/* Display name */}
               <div>
                 <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">Display name</label>
                 <input
@@ -149,8 +146,25 @@ export default function AddLocationModal({ onAdd, onClose }) {
                   onChange={e => setName(e.target.value)}
                   required
                 />
-                <p className="text-xs text-slate-400 mt-1">
-                  📍 {selected.latitude.toFixed(6)}, {selected.longitude.toFixed(6)}
+              </div>
+
+              {/* Pin map — exact court location */}
+              <div>
+                <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
+                  Court location
+                </label>
+                <p className="text-xs text-slate-400 mt-0.5 mb-2">
+                  Tap or drag the pin to your exact court
+                </p>
+                {/* key forces remount when a different search result is picked */}
+                <CourtPinMap
+                  key={`${selected.latitude},${selected.longitude}`}
+                  lat={selected.latitude}
+                  lng={selected.longitude}
+                  onPin={(lat, lng) => { setPinLat(lat); setPinLng(lng) }}
+                />
+                <p className="text-xs text-slate-400 mt-1.5 tabular-nums">
+                  📍 {pinLat?.toFixed(5)}, {pinLng?.toFixed(5)}
                 </p>
               </div>
 
@@ -193,8 +207,8 @@ export default function AddLocationModal({ onAdd, onClose }) {
                   location={{
                     id: null,
                     name: name || selected?.name || 'New location',
-                    latitude: selected.latitude,
-                    longitude: selected.longitude,
+                    latitude: pinLat ?? selected.latitude,
+                    longitude: pinLng ?? selected.longitude,
                     court_bearing_deg: bearingNum ?? 0,
                   }}
                   onSave={(_, b) => setBearing(String(b))}
@@ -235,19 +249,16 @@ function CourtDiagram({ bearing }) {
 
   return (
     <svg width="120" height="120" viewBox="0 0 120 120" className="opacity-80">
-      {/* compass */}
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#e2e8f0" strokeWidth="1" />
       <text x={cx} y={cy - r - 4} textAnchor="middle" fontSize="8" fill="#94a3b8">N</text>
       <text x={cx} y={cy + r + 10} textAnchor="middle" fontSize="8" fill="#94a3b8">S</text>
       <text x={cx + r + 6} y={cy + 3} textAnchor="middle" fontSize="8" fill="#94a3b8">E</text>
       <text x={cx - r - 6} y={cy + 3} textAnchor="middle" fontSize="8" fill="#94a3b8">W</text>
-      {/* court line */}
       <line
         x1={cx - dx} y1={cy - dy}
         x2={cx + dx} y2={cy + dy}
         stroke="#0ea5e9" strokeWidth="3" strokeLinecap="round"
       />
-      {/* net indicator */}
       <circle cx={cx} cy={cy} r="3" fill="#0ea5e9" />
     </svg>
   )
