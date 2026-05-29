@@ -73,16 +73,9 @@ function blackoutTick(eff) {
 
 const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
 
-function SlotBadge({ score, condensed }) {
+function SlotBadge({ score, mobileCondensed }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
-  }
-  if (condensed) {
-    return (
-      <div className={`flex-1 rounded-lg border py-2 flex items-center justify-center ${SLOT_BG[score.verdict]}`}>
-        <span className="text-base leading-none">{ICON[score.verdict]}</span>
-      </div>
-    )
   }
   const eff = score.effectiveWind ?? score.mph
   const isBlackout = score.verdict === 'blackout'
@@ -90,15 +83,18 @@ function SlotBadge({ score, condensed }) {
   // Clamp away from edges so tick stays visible inside the rounded corners
   const tickPct = Math.min(Math.max(raw, 5), 95)
   return (
-    <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
-      <p className="text-sm font-bold leading-none">
-        {score.mph}
-        <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
-      </p>
-      <div className="mt-2 h-3 rounded-full overflow-hidden relative"
-           style={{ background: isBlackout ? BLACKOUT_GRADIENT : NORMAL_GRADIENT }}>
-        <div className="absolute top-0 h-full w-[3px] bg-white/90"
-             style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
+    <div className={`flex-1 rounded-lg border ${mobileCondensed ? 'py-2 px-2 flex items-center justify-center md:block md:px-3 md:pt-2.5 md:pb-3' : 'px-3 pt-2.5 pb-3'} ${SLOT_BG[score.verdict]}`}>
+      <span className={`text-base leading-none ${mobileCondensed ? 'md:hidden' : 'hidden'}`}>{ICON[score.verdict]}</span>
+      <div className={mobileCondensed ? 'hidden md:block' : ''}>
+        <p className="text-sm font-bold leading-none">
+          {score.mph}
+          <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
+        </p>
+        <div className="mt-2 h-3 rounded-full overflow-hidden relative"
+             style={{ background: isBlackout ? BLACKOUT_GRADIENT : NORMAL_GRADIENT }}>
+          <div className="absolute top-0 h-full w-[3px] bg-white/90"
+               style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
+        </div>
       </div>
     </div>
   )
@@ -139,9 +135,12 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
   const dayMap = groupByDay(hourlyData)
   const sortedDates = [...dayMap.keys()].sort()
 
-  // Mobile collapsed: show today + next 3 days (4 total)
   const todayIdx = sortedDates.findIndex(d => d >= todayStr)
-  const cutoffIdx = todayIdx === -1 ? 3 : todayIdx + 3
+  // Mobile collapsed: today + next 3 days
+  const mobileCutoff = todayIdx === -1 ? 3 : todayIdx + 3
+  // Desktop collapsed: last 2 days + today + next 6 days
+  const desktopStart = todayIdx === -1 ? 0 : Math.max(0, todayIdx - 2)
+  const desktopEnd   = todayIdx === -1 ? 6 : todayIdx + 6
 
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
@@ -206,10 +205,12 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
           const morning = scoreSlot(slotHours(dayHours, 8, 11), location)
           const afternoon = scoreSlot(slotHours(dayHours, 16, 19), location)
 
-          // Mobile: show today + next 3 days collapsed; all when expanded.
-          // Desktop (md+): always show all rows.
-          const inInitialSet = !isPast && idx <= cutoffIdx
-          const rowVisibility = expanded || inInitialSet ? 'flex' : 'hidden md:flex'
+          // Mobile collapsed: today + next 3. Desktop collapsed: last 2 + today + next 6.
+          const inMobileSet  = !isPast && idx <= mobileCutoff
+          const inDesktopSet = idx >= desktopStart && idx <= desktopEnd
+          const showMobile   = expanded || inMobileSet ? 'flex' : 'hidden'
+          const showDesktop  = expanded || inDesktopSet ? 'md:flex' : 'md:hidden'
+          const rowVisibility = `${showMobile} ${showDesktop}`
           const condensed = !expanded
 
           const bothBlackout = morning?.verdict === 'blackout' && afternoon?.verdict === 'blackout'
@@ -226,16 +227,16 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
-              <SlotBadge score={morning} condensed={condensed} />
-              <SlotBadge score={afternoon} condensed={condensed} />
+              <SlotBadge score={morning} mobileCondensed={condensed} />
+              <SlotBadge score={afternoon} mobileCondensed={condensed} />
             </div>
           )
         })}
       </div>
 
-      {/* Expand / collapse toggle — mobile only */}
+      {/* Expand / collapse toggle */}
       <button
-        className="md:hidden w-full flex items-center justify-center gap-1 py-2.5 text-xs text-slate-400 hover:text-sky-600 hover:bg-slate-50 border-t border-slate-100 transition-colors"
+        className="w-full flex items-center justify-center gap-1 py-2.5 text-xs text-slate-400 hover:text-sky-600 hover:bg-slate-50 border-t border-slate-100 transition-colors"
         onClick={() => setExpanded(e => !e)}
       >
         {expanded ? (
