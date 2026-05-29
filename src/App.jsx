@@ -141,7 +141,7 @@ export default function App() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))' }}>
+        <div className="grid gap-4 items-start justify-center" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 380px))' }}>
           {locations.length === 0 && (
             <div className="col-span-full text-center py-16 text-slate-400">
               <p className="text-5xl mb-3">🏖</p>
