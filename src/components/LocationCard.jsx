@@ -54,11 +54,22 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Normal (good/playable/skip): green→yellow→red over 0–16 mph
-// Blackout: yellow→red→dark over 8–26 mph
-// Boundaries: 8 mph = 50% normal, 11 mph = 68.8% normal / 16.7% blackout, 16 mph = 44.4% blackout
-const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 50%, #fde68a 50%, #fde68a 68.8%, #fca5a5 68.8%, #fca5a5 100%)'
-const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 16.7%, #fca5a5 16.7%, #fca5a5 44.4%, #cbd5e1 44.4%)'
+// Green compressed to 20% (distinctions within green don't matter much).
+// Yellow 30%, Red 50% — more space where real decisions happen.
+// Blackout: yellow 20%, red 30%, dark 50%.
+const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 20%, #fde68a 20%, #fde68a 50%, #fca5a5 50%, #fca5a5 100%)'
+const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 20%, #fca5a5 20%, #fca5a5 50%, #cbd5e1 50%)'
+
+function normalTick(eff) {
+  if (eff <= 8)  return (eff / 8) * 20
+  if (eff <= 11) return 20 + ((eff - 8) / 3) * 30
+  return Math.min(50 + ((eff - 11) / 5) * 50, 100)
+}
+function blackoutTick(eff) {
+  if (eff <= 11) return Math.max((eff - 8) / 3, 0) * 20
+  if (eff <= 16) return 20 + ((eff - 11) / 5) * 30
+  return Math.min(50 + ((eff - 16) / 10) * 50, 100)
+}
 
 function SlotBadge({ score }) {
   if (!score) {
@@ -66,9 +77,9 @@ function SlotBadge({ score }) {
   }
   const eff = score.effectiveWind ?? score.mph
   const isBlackout = score.verdict === 'blackout'
-  const tickPct = isBlackout
-    ? Math.min(Math.max((eff - 8) / 18, 0), 1) * 100
-    : Math.min(eff / 16, 1) * 100
+  const raw = isBlackout ? blackoutTick(eff) : normalTick(eff)
+  // Clamp away from edges so tick stays visible inside the rounded corners
+  const tickPct = Math.min(Math.max(raw, 5), 95)
   return (
     <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
       <p className="text-sm font-bold leading-none">
