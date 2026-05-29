@@ -61,13 +61,21 @@ const BAR_TRACK = {
 const BAR_FILL = {
   good: 'bg-green-500', playable: 'bg-yellow-500', skip: 'bg-red-400', blackout: 'bg-white/70',
 }
-const SEVERITY_MAX = 22
+// Position within each verdict band (effective wind mph)
+const BAND_RANGE = {
+  good:     [0,  8],
+  playable: [8,  11],
+  skip:     [11, 16],
+  blackout: [16, 30],
+}
 
 function SlotBadge({ score, label }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-center text-[10px] text-slate-300">—</div>
   }
-  const barPct = Math.min((score.effectiveWind ?? score.mph) / SEVERITY_MAX, 1) * 100
+  const [bandMin, bandMax] = BAND_RANGE[score.verdict]
+  const eff = score.effectiveWind ?? score.mph
+  const barPct = Math.min(Math.max((eff - bandMin) / (bandMax - bandMin), 0), 1) * 100
   return (
     <div className={`flex-1 rounded-lg border px-2 pt-1.5 pb-2 ${SLOT_BG[score.verdict]}`}>
       <div className="flex items-center gap-1">
