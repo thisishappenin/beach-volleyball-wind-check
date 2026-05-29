@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react'
-import { X, Search, Loader2, MapPin } from 'lucide-react'
+import { X, Search, Loader2, MapPin, Compass } from 'lucide-react'
 import { geocodeSearch } from '../lib/openmeteo'
+import CourtMapModal from './CourtMapModal'
 
 function bearingLabel(deg) {
   const labels = {
@@ -19,6 +20,7 @@ export default function AddLocationModal({ onAdd, onClose }) {
   const [selected, setSelected] = useState(null)
   const [name, setName] = useState('')
   const [bearing, setBearing] = useState('')
+  const [showBearingMap, setShowBearingMap] = useState(false)
   const [notes, setNotes] = useState('')
   const [searchError, setSearchError] = useState('')
 
@@ -157,16 +159,25 @@ export default function AddLocationModal({ onAdd, onClose }) {
                 <label className="text-xs font-medium text-slate-500 uppercase tracking-wide">
                   Court bearing <span className="normal-case font-normal">(optional)</span>
                 </label>
-                <select
-                  className="w-full mt-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400 bg-white"
-                  value={bearing}
-                  onChange={e => setBearing(e.target.value)}
-                >
-                  <option value="">Not sure — skip</option>
-                  {Array.from({ length: 19 }, (_, i) => i * 10).map(deg => (
-                    <option key={deg} value={deg}>{deg}° — {bearingLabel(deg)}</option>
-                  ))}
-                </select>
+                <div className="flex gap-2 mt-1">
+                  <input
+                    type="number"
+                    min="0"
+                    max="179"
+                    step="1"
+                    placeholder="0–179°"
+                    value={bearing}
+                    onChange={e => setBearing(e.target.value)}
+                    className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-sky-400"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowBearingMap(true)}
+                    className="px-3 py-2.5 border border-slate-200 rounded-xl text-slate-500 hover:text-sky-600 hover:border-sky-300 hover:bg-sky-50 transition-colors flex items-center gap-1.5 text-sm whitespace-nowrap"
+                  >
+                    <Compass size={14} /> Draw on map
+                  </button>
+                </div>
                 <p className="text-xs text-slate-400 mt-1">
                   Long axis of the court: 0° = N/S, 90° = E/W, 135° = NW/SE.
                 </p>
@@ -176,6 +187,20 @@ export default function AddLocationModal({ onAdd, onClose }) {
                   </div>
                 )}
               </div>
+
+              {showBearingMap && (
+                <CourtMapModal
+                  location={{
+                    id: null,
+                    name: name || selected?.name || 'New location',
+                    latitude: selected.latitude,
+                    longitude: selected.longitude,
+                    court_bearing_deg: bearingNum ?? 0,
+                  }}
+                  onSave={(_, b) => setBearing(String(b))}
+                  onClose={() => setShowBearingMap(false)}
+                />
+              )}
 
               {/* Notes */}
               <div>
