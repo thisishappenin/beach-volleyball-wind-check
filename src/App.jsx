@@ -103,7 +103,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 to-blue-50">
-      <div className="max-w-5xl mx-auto px-4 pb-10">
+      <div className="px-6 pb-10">
         <div className="pt-8 pb-5 flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-bold text-slate-800">🏐 Beach Wind Check</h1>
