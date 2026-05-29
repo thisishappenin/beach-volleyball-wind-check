@@ -5,17 +5,22 @@ const PLAY_WINDOWS = [
 
 // Verdict bands, in mph. `wind` is the effective (direction- + gust-adjusted) speed;
 // `gust` is the raw 10m gust ceiling. A band requires BOTH to be under its caps;
-// anything above the `skip` band is `blackout` (unplayable).
+// anything above the `skip` band is `blackout` (unplayable). Semantics the bands
+// encode:
+//   good (green)     — REALLY good: calm, a standout day. Reserved, not the default.
+//   playable (yellow)— go play, just the usual breeze. The normal playable case.
+//   skip (red)       — playable but windy; pick another day if you can.
+//   blackout         — unplayable.
 //
 // Calibrated to three ground-truth sessions at Huntington Beach Pier (PM), which the
 // gust-dominant effective wind ranks correctly in order of how they played:
-//   21 May 2026 — 13 sustained / 10 gusts (smooth) → eff 10.8 → "pretty good"   → good
-//   28 May 2026 — 11 sustained / 16 gusts (gusty)  → eff 13.1 → "edge of unplayable" → skip (upper end)
+//   21 May 2026 — 13 sustained / 10 gusts (smooth) → eff 10.8 → "pretty good"        → yellow
+//   28 May 2026 — 11 sustained / 16 gusts (gusty)  → eff 13.1 → "edge of unplayable" → red (upper end)
 //   19 May 2026 — 16 sustained / 15 gusts (strong) → eff 14.3 → "completely unplayable" → blackout
-// The window between "good" and "unplayable" is only ~3.5 mph effective, so the bands
-// are narrow — that's this player's real tolerance, not over-fitting.
+// "Pretty good" is yellow, not green — green is for genuinely calm days (which is why
+// HB mornings read green and the usual afternoon sea breeze reads yellow).
 export const WIND_BANDS = {
-  good:     { wind: 11,   gust: 13 },
+  good:     { wind: 8,    gust: 10 },
   playable: { wind: 12,   gust: 16 },
   skip:     { wind: 13.5, gust: 20 },
   // (no caps) => blackout
