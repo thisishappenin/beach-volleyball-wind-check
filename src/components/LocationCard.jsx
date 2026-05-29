@@ -136,8 +136,8 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
   const sortedDates = [...dayMap.keys()].sort()
 
   const todayIdx = sortedDates.findIndex(d => d >= todayStr)
-  // Mobile collapsed: today + next 3 days
-  const mobileCutoff = todayIdx === -1 ? 3 : todayIdx + 3
+  // Mobile collapsed: today + next 5 days
+  const mobileCutoff = todayIdx === -1 ? 5 : todayIdx + 5
   // Desktop collapsed: last 2 days + today + next 6 days
   const desktopStart = todayIdx === -1 ? 0 : Math.max(0, todayIdx - 2)
   const desktopEnd   = todayIdx === -1 ? 6 : todayIdx + 6
