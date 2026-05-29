@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, RefreshCw, LogOut } from 'lucide-react'
+import { Plus, RefreshCw, LogOut, User } from 'lucide-react'
 import LocationCard from './components/LocationCard'
 import AddLocationModal from './components/AddLocationModal'
 import AuthScreen from './components/AuthScreen'
@@ -19,21 +19,25 @@ function storageKey(accountId) {
 
 export default function App() {
   const [session, setSession] = useState(() => getSession())
+  const [showAuth, setShowAuth] = useState(false)
   const [locations, setLocations] = useState([])
   const [weather, setWeather] = useState({})
   const [loadingIds, setLoadingIds] = useState(new Set())
   const [showAdd, setShowAdd] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
 
+  // Guest users get their own isolated storage slot
+  const accountId = session?.accountId ?? 'guest'
+
   useEffect(() => {
-    if (!session) return
-    let locs = loadLocations(session.accountId)
+    let locs = loadLocations(accountId)
     if (locs.length === 0) {
       locs = SAMPLE_LOCATIONS
-      localStorage.setItem(storageKey(session.accountId), JSON.stringify(locs))
+      localStorage.setItem(storageKey(accountId), JSON.stringify(locs))
     }
     setLocations(locs.filter(l => l.active))
-  }, [session?.accountId])
+    setWeather({})
+  }, [accountId])
 
   const fetchAllWeather = useCallback(async (locs) => {
     setLoadingIds(new Set(locs.map(l => l.id)))
@@ -59,34 +63,33 @@ export default function App() {
   }, [locations.map(l => l.id).join(',')])
 
   const handleAdd = (locData) => {
-    const newLoc = addLocation(session.accountId, locData)
+    const newLoc = addLocation(accountId, locData)
     setLocations(prev => [...prev, newLoc])
     setShowAdd(false)
   }
 
   const handleDelete = (id) => {
-    removeLocation(session.accountId, id)
+    removeLocation(accountId, id)
     setLocations(prev => prev.filter(l => l.id !== id))
     setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
   }
 
   const handleSetBearing = (id, newBearing) => {
-    updateLocation(session.accountId, id, { court_bearing_deg: newBearing })
+    updateLocation(accountId, id, { court_bearing_deg: newBearing })
     setLocations(prev => prev.map(l => l.id === id ? { ...l, court_bearing_deg: newBearing } : l))
+  }
+
+  const handleAuth = (newSession) => {
+    setSession(newSession)
+    setShowAuth(false)
   }
 
   const handleLogout = () => {
     logout()
     setSession(null)
-    setLocations([])
-    setWeather({})
   }
 
   const anyLoading = loadingIds.size > 0
-
-  if (!session) {
-    return <AuthScreen onAuth={setSession} />
-  }
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 to-blue-50">
@@ -97,7 +100,9 @@ export default function App() {
             <p className="text-xs text-slate-400 mt-0.5">8–11 AM · 4–7 PM · last 7 + next 7 days</p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-500 hidden sm:block">{session.username}</span>
+            {session && (
+              <span className="text-xs text-slate-500 hidden sm:block">{session.username}</span>
+            )}
             <button
               onClick={() => fetchAllWeather(locations)}
               disabled={anyLoading}
@@ -106,13 +111,23 @@ export default function App() {
             >
               <RefreshCw size={18} className={anyLoading ? 'animate-spin' : ''} />
             </button>
-            <button
-              onClick={handleLogout}
-              className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
-              title="Sign out"
-            >
-              <LogOut size={18} />
-            </button>
+            {session ? (
+              <button
+                onClick={handleLogout}
+                className="p-2 rounded-full text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+                title="Sign out"
+              >
+                <LogOut size={18} />
+              </button>
+            ) : (
+              <button
+                onClick={() => setShowAuth(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-sky-600 border border-sky-200 rounded-full hover:bg-sky-50 transition-colors"
+                title="Sign in or create account"
+              >
+                <User size={13} /> Sign in
+              </button>
+            )}
           </div>
         </div>
 
@@ -154,6 +169,10 @@ export default function App() {
 
       {showAdd && (
         <AddLocationModal onAdd={handleAdd} onClose={() => setShowAdd(false)} />
+      )}
+
+      {showAuth && (
+        <AuthScreen onAuth={handleAuth} onClose={() => setShowAuth(false)} />
       )}
     </div>
   )
