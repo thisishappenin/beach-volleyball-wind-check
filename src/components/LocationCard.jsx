@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, ChevronDown, ChevronUp, Compass, Pencil } from 'lucide-react'
-import { scoreHour, windDirectionLabel } from '../lib/scoring'
+import { scoreHour, windDirectionLabel, WIND_BANDS } from '../lib/scoring'
 import CourtMapModal from './CourtMapModal'
 import EditLocationModal from './EditLocationModal'
 
@@ -30,22 +30,26 @@ function slotHours(dayHours, startHr, endHr) {
 
 function scoreSlot(hours, location) {
   if (!hours || hours.length === 0) return null
-  const verdictRank = { good: 0, playable: 1, skip: 2 }
-  let worstScore = null
-  let maxWindHour = null
+  const verdictRank = { good: 0, playable: 1, skip: 2, blackout: 3 }
+  // Pick the hour that actually drives the verdict (worst verdict, then highest
+  // effective wind), and report THAT hour's numbers — so the displayed mph/gust,
+  // the colour, and the tick all describe the same moment.
+  let worst = null
   for (const h of hours) {
     const s = scoreHour(h, location)
-    if (!worstScore || verdictRank[s.verdict] > verdictRank[worstScore.verdict]) worstScore = s
-    if (!maxWindHour || h.wind_speed_10m > maxWindHour.wind_speed_10m) maxWindHour = h
+    const better = !worst ||
+      verdictRank[s.verdict] > verdictRank[worst.s.verdict] ||
+      (verdictRank[s.verdict] === verdictRank[worst.s.verdict] && s.effective_wind > worst.s.effective_wind)
+    if (better) worst = { h, s }
   }
-  const sustained = Math.round(maxWindHour.wind_speed_10m)
-  const gust = Math.round(maxWindHour.wind_gusts_10m ?? maxWindHour.wind_speed_10m)
+  const sustained = Math.round(worst.s.sustained_mph)
+  const gust = Math.round(worst.s.gust_mph)
   return {
-    verdict: worstScore.verdict,
+    verdict: worst.s.verdict,
     mph: sustained,
     gust: Math.max(sustained, gust),
-    dir: windDirectionLabel(maxWindHour.wind_direction_10m),
-    effectiveWind: worstScore.effective_wind,
+    dir: windDirectionLabel(worst.h.wind_direction_10m),
+    effectiveWind: worst.s.effective_wind,
   }
 }
 
@@ -60,15 +64,21 @@ function dayLabel(dateStr) {
 const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 20%, #fde68a 20%, #fde68a 50%, #fca5a5 50%, #fca5a5 100%)'
 const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 20%, #fca5a5 20%, #fca5a5 50%, #cbd5e1 50%)'
 
+// Band edges drive both the verdict and the bar, so derive the tick from WIND_BANDS
+// to keep them from drifting apart.
+const G = WIND_BANDS.good.wind      // good ceiling   (green ends)
+const P = WIND_BANDS.playable.wind  // playable ceiling (yellow ends)
+const S = WIND_BANDS.skip.wind      // skip ceiling   (red ends / blackout begins)
+
 function normalTick(eff) {
-  if (eff <= 8)  return (eff / 8) * 20
-  if (eff <= 11) return 20 + ((eff - 8) / 3) * 30
-  return Math.min(50 + ((eff - 11) / 5) * 50, 100)
+  if (eff <= G) return (eff / G) * 20
+  if (eff <= P) return 20 + ((eff - G) / (P - G)) * 30
+  return Math.min(50 + ((eff - P) / (S - P)) * 50, 100)
 }
 function blackoutTick(eff) {
-  if (eff <= 11) return Math.max((eff - 8) / 3, 0) * 20
-  if (eff <= 16) return 20 + ((eff - 11) / 5) * 30
-  return Math.min(50 + ((eff - 16) / 10) * 50, 100)
+  if (eff <= P) return Math.max((eff - G) / (P - G), 0) * 20
+  if (eff <= S) return 20 + ((eff - P) / (S - P)) * 30
+  return Math.min(50 + ((eff - S) / 10) * 50, 100)
 }
 
 const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }

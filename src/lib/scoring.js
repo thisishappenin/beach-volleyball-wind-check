@@ -3,6 +3,24 @@ const PLAY_WINDOWS = [
   { start: 16, end: 19 }, // 4–7 PM
 ]
 
+// Verdict bands, in mph. `wind` is the effective (direction- + gust-adjusted) speed;
+// `gust` is the raw 10m gust ceiling. A band requires BOTH to be under its caps;
+// anything above the `skip` band is `blackout` (unplayable).
+//
+// Calibrated to three ground-truth sessions at Huntington Beach Pier (PM), which the
+// gust-dominant effective wind ranks correctly in order of how they played:
+//   21 May 2026 — 13 sustained / 10 gusts (smooth) → eff 10.8 → "pretty good"   → good
+//   28 May 2026 — 11 sustained / 16 gusts (gusty)  → eff 13.1 → "edge of unplayable" → skip (upper end)
+//   19 May 2026 — 16 sustained / 15 gusts (strong) → eff 14.3 → "completely unplayable" → blackout
+// The window between "good" and "unplayable" is only ~3.5 mph effective, so the bands
+// are narrow — that's this player's real tolerance, not over-fitting.
+export const WIND_BANDS = {
+  good:     { wind: 11,   gust: 13 },
+  playable: { wind: 12,   gust: 16 },
+  skip:     { wind: 13.5, gust: 20 },
+  // (no caps) => blackout
+}
+
 function isPlayHour(hour) {
   return PLAY_WINDOWS.some(w => hour >= w.start && hour < w.end)
 }
@@ -12,32 +30,41 @@ export function scoreHour(hourData, location) {
   const gust_mph = hourData.wind_gusts_10m ?? hourData.wind_speed_10m
   const court_bearing = location.court_bearing_deg
 
-  let effective_wind
   const reasons = []
 
+  // Direction-adjust the sustained wind against the court's long axis: crosswind
+  // (across the axis) disrupts ball control most, so it gets full weight; along-axis
+  // wind is more predictable, so it's weighted 0.75. Combine as a vector magnitude
+  // rather than a scalar sum — a plain sum peaks at ~1.25x near 53°, scoring a diagonal
+  // wind worse than a pure crosswind. The magnitude form stays within 0.75–1.0x.
+  let adj_sustained
   if (court_bearing == null) {
-    effective_wind = sustained_mph
+    adj_sustained = sustained_mph
   } else {
     let angle = Math.abs(wind_dir_deg - court_bearing) % 180
     if (angle > 90) angle = 180 - angle
-    const crosswind_factor = Math.sin((angle * Math.PI) / 180)
-    const parallel_factor = Math.cos((angle * Math.PI) / 180) * 0.75
-    effective_wind = sustained_mph * (crosswind_factor + parallel_factor)
+    const rad = (angle * Math.PI) / 180
+    const crosswind = Math.sin(rad)
+    const parallel = Math.cos(rad) * 0.75
+    adj_sustained = sustained_mph * Math.sqrt(crosswind * crosswind + parallel * parallel)
   }
 
-  // Gusts are raw 10m model values (no height correction). Trigger spikiness penalty
-  // sooner since the gap between corrected sustained and raw gust is inherently wider.
-  if (gust_mph - sustained_mph >= 5) {
-    effective_wind += 2
-    reasons.push('gusty')
-  }
+  // Players react to gust peaks, not the height-corrected average — a steady 11 mph and
+  // an 11 mph average spiking to 15 play completely differently. So the "effective" wind
+  // is gust-dominant. Gusts are used raw: they reach ground level unattenuated and swirl,
+  // so neither the height (×0.83 upstream) nor the direction discount applies to them.
+  // GUST_WEIGHT calibrated to HB Pier, 28 May 2026 PM (11 sustained / 15 gusts → ~12.7,
+  // upper-half of `skip`, a couple mph below blackout — "bad but playable, near the edge").
+  const GUST_WEIGHT = 0.6
+  const effective_wind = GUST_WEIGHT * gust_mph + (1 - GUST_WEIGHT) * adj_sustained
+  if (gust_mph - sustained_mph >= 5) reasons.push('gusty')
 
   let verdict
-  if (effective_wind < 8 && gust_mph < 15) {
+  if (effective_wind < WIND_BANDS.good.wind && gust_mph < WIND_BANDS.good.gust) {
     verdict = 'good'
-  } else if (effective_wind < 11 && gust_mph < 18) {
+  } else if (effective_wind < WIND_BANDS.playable.wind && gust_mph < WIND_BANDS.playable.gust) {
     verdict = 'playable'
-  } else if (effective_wind < 16 && gust_mph < 24) {
+  } else if (effective_wind < WIND_BANDS.skip.wind && gust_mph < WIND_BANDS.skip.gust) {
     verdict = 'skip'
   } else {
     verdict = 'blackout'
@@ -94,7 +121,7 @@ export function bestWindowToday(hourlyData, location) {
   }
 
   // Fall back: worst hour verdict across play hours
-  const verdictRank = { good: 0, playable: 1, skip: 2 }
+  const verdictRank = { good: 0, playable: 1, skip: 2, blackout: 3 }
   const worst = scored.reduce((a, b) =>
     verdictRank[a.score.verdict] >= verdictRank[b.score.verdict] ? a : b, scored[0])
 
