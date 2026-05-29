@@ -179,8 +179,8 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
       {/* Column labels */}
       <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 border-b border-slate-100">
         <div className="w-24 shrink-0" />
-        <div className="flex-1 text-[10px] font-medium text-slate-400 uppercase tracking-wide text-center">8–11 AM</div>
-        <div className="flex-1 text-[10px] font-medium text-slate-400 uppercase tracking-wide text-center">4–7 PM</div>
+        <div className="flex-1 text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">8–11 AM</div>
+        <div className="flex-1 text-xs font-semibold text-slate-500 uppercase tracking-wide text-center">4–7 PM</div>
       </div>
 
       {/* Day rows */}
