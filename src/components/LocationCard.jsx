@@ -54,29 +54,28 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-const BAND_RANGE = {
-  good:     [0,  8],
-  playable: [8,  11],
-  skip:     [11, 16],
-  blackout: [16, 30],
-}
+// Pastel spectrum — zone boundaries always visible, tick marks position
+// Scale: 20 mph max. Boundaries at 40% (8mph), 55% (11mph), 80% (16mph)
+const SPECTRUM_BG = 'linear-gradient(to right, #86efac 0%, #86efac 40%, #fde68a 40%, #fde68a 55%, #fca5a5 55%, #fca5a5 80%, #94a3b8 80%)'
+const SPECTRUM_MAX = 20
 
 function SlotBadge({ score }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
-  const [bandMin, bandMax] = BAND_RANGE[score.verdict]
   const eff = score.effectiveWind ?? score.mph
-  const barPct = Math.min(Math.max((eff - bandMin) / (bandMax - bandMin), 0), 1) * 100
-  const dark = score.verdict === 'blackout'
+  const tickPct = Math.min(eff / SPECTRUM_MAX, 1) * 100
   return (
     <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
       <p className="text-sm font-bold leading-none">
         {score.mph}
         <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
       </p>
-      <div className={`mt-2 h-1.5 rounded-full ${dark ? 'bg-white/10' : 'bg-black/10'}`}>
-        <div className={`h-full rounded-full ${dark ? 'bg-white/30' : 'bg-black/20'}`} style={{ width: `${barPct}%` }} />
+      <div className="mt-2 h-1.5 rounded-full overflow-hidden relative" style={{ background: SPECTRUM_BG }}>
+        <div className="absolute inset-0" style={{
+          background: `linear-gradient(to right, transparent ${tickPct}%, rgba(255,255,255,0.65) ${tickPct}%)`
+        }} />
+        <div className="absolute top-0 h-full w-[2px] bg-white/90" style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
       </div>
     </div>
   )
