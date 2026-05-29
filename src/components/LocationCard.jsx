@@ -7,8 +7,8 @@ import EditLocationModal from './EditLocationModal'
 const SLOT_BG = {
   good:     'bg-green-100 border-green-400 text-green-900',
   playable: 'bg-amber-100 border-amber-400 text-amber-900',
-  skip:     'bg-red-100 border-red-400 text-red-900',
-  blackout: 'bg-slate-900 border-slate-700 text-slate-100',
+  skip:     'bg-red-50 border-red-200 text-red-400',
+  blackout: 'bg-slate-100 border-slate-200 text-slate-400',
 }
 
 function groupByDay(hourlyData) {
