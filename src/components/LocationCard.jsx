@@ -4,7 +4,6 @@ import { scoreHour, windDirectionLabel } from '../lib/scoring'
 import CourtMapModal from './CourtMapModal'
 import EditLocationModal from './EditLocationModal'
 
-const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
 const SLOT_BG = {
   good: 'bg-green-50 border-green-200 text-green-800',
   playable: 'bg-yellow-50 border-yellow-200 text-yellow-800',
@@ -59,23 +58,20 @@ function dayLabel(dateStr) {
 const SPECTRUM = 'linear-gradient(to right, #22c55e 0%, #22c55e 40%, #eab308 40%, #eab308 55%, #ef4444 55%, #ef4444 80%, #1e293b 80%)'
 const SPECTRUM_MAX = 20
 
-function SlotBadge({ score, label }) {
+function SlotBadge({ score }) {
   if (!score) {
-    return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-center text-[10px] text-slate-300">—</div>
+    return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
   const eff = score.effectiveWind ?? score.mph
   const tickPct = Math.min(eff / SPECTRUM_MAX, 1) * 100
   return (
-    <div className={`flex-1 rounded-lg border px-2 pt-1.5 pb-2 ${SLOT_BG[score.verdict]}`}>
-      <div className="flex items-center gap-1">
-        <span className="text-sm leading-none">{ICON[score.verdict]}</span>
-        <div className="min-w-0">
-          <p className="text-[10px] leading-none opacity-60">{label}</p>
-          <p className="text-xs font-medium leading-none mt-0.5">{score.mph} · g{score.gust} · {score.dir}</p>
-        </div>
-      </div>
-      <div className="mt-1.5 relative h-1.5 rounded-full overflow-hidden" style={{ background: SPECTRUM }}>
-        <div className="absolute top-0 h-full w-px bg-white/90" style={{ left: `${tickPct}%` }} />
+    <div className={`flex-1 rounded-lg border px-3 pt-2.5 pb-3 ${SLOT_BG[score.verdict]}`}>
+      <p className="text-sm font-bold leading-none">
+        {score.mph}
+        <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
+      </p>
+      <div className="mt-2 relative h-2 rounded-full overflow-hidden" style={{ background: SPECTRUM }}>
+        <div className="absolute top-0 h-full w-[2px] bg-white/90" style={{ left: `${tickPct}%` }} />
       </div>
     </div>
   )
@@ -201,8 +197,8 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
-              <SlotBadge score={morning} label="8–11A" />
-              <SlotBadge score={afternoon} label="4–7P" />
+              <SlotBadge score={morning} />
+              <SlotBadge score={afternoon} />
             </div>
           )
         })}
