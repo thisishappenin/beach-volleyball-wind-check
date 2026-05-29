@@ -71,9 +71,18 @@ function blackoutTick(eff) {
   return Math.min(50 + ((eff - 16) / 10) * 50, 100)
 }
 
-function SlotBadge({ score }) {
+const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
+
+function SlotBadge({ score, condensed }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
+  }
+  if (condensed) {
+    return (
+      <div className={`flex-1 rounded-lg border py-2 flex items-center justify-center ${SLOT_BG[score.verdict]}`}>
+        <span className="text-base leading-none">{ICON[score.verdict]}</span>
+      </div>
+    )
   }
   const eff = score.effectiveWind ?? score.mph
   const isBlackout = score.verdict === 'blackout'
@@ -130,6 +139,10 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
   const dayMap = groupByDay(hourlyData)
   const sortedDates = [...dayMap.keys()].sort()
 
+  // Mobile collapsed: show today + next 3 days (4 total)
+  const todayIdx = sortedDates.findIndex(d => d >= todayStr)
+  const cutoffIdx = todayIdx === -1 ? 3 : todayIdx + 3
+
   return (
     <div className="rounded-2xl border border-slate-200 bg-white overflow-hidden">
       {/* Header */}
@@ -185,7 +198,7 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
 
       {/* Day rows */}
       <div className="divide-y divide-slate-50">
-        {sortedDates.map(dateStr => {
+        {sortedDates.map((dateStr, idx) => {
           const isToday = dateStr === todayStr
           const isPast = dateStr < todayStr
           const dayHours = dayMap.get(dateStr)
@@ -193,13 +206,11 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
           const morning = scoreSlot(slotHours(dayHours, 8, 11), location)
           const afternoon = scoreSlot(slotHours(dayHours, 16, 19), location)
 
-          // On mobile: hide non-today rows unless expanded.
-          // On desktop (md+): always show via md:flex.
-          const rowVisibility = isToday
-            ? 'flex'
-            : expanded
-              ? 'flex'
-              : 'hidden md:flex'
+          // Mobile: show today + next 3 days collapsed; all when expanded.
+          // Desktop (md+): always show all rows.
+          const inInitialSet = !isPast && idx <= cutoffIdx
+          const rowVisibility = expanded || inInitialSet ? 'flex' : 'hidden md:flex'
+          const condensed = !expanded
 
           const bothBlackout = morning?.verdict === 'blackout' && afternoon?.verdict === 'blackout'
 
@@ -215,8 +226,8 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
-              <SlotBadge score={morning} />
-              <SlotBadge score={afternoon} />
+              <SlotBadge score={morning} condensed={condensed} />
+              <SlotBadge score={afternoon} condensed={condensed} />
             </div>
           )
         })}
