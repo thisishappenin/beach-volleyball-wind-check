@@ -79,6 +79,16 @@ export default function App() {
     setLocations(prev => prev.map(l => l.id === id ? { ...l, court_bearing_deg: newBearing } : l))
   }
 
+  const handleEdit = (id, patch) => {
+    updateLocation(accountId, id, patch)
+    setLocations(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
+    if (patch.latitude !== undefined || patch.longitude !== undefined) {
+      setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
+      const base = locations.find(l => l.id === id)
+      if (base) fetchAllWeather([{ ...base, ...patch }])
+    }
+  }
+
   const handleAuth = (newSession) => {
     setSession(newSession)
     setShowAuth(false)
@@ -148,6 +158,7 @@ export default function App() {
               loading={loadingIds.has(loc.id)}
               onDelete={handleDelete}
               onSetBearing={handleSetBearing}
+              onEdit={handleEdit}
             />
           ))}
         </div>

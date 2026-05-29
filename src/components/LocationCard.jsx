@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { Trash2, ChevronDown, ChevronUp, Compass } from 'lucide-react'
+import { Trash2, ChevronDown, ChevronUp, Compass, Pencil } from 'lucide-react'
 import { scoreHour, windDirectionLabel } from '../lib/scoring'
 import CourtMapModal from './CourtMapModal'
+import EditLocationModal from './EditLocationModal'
 
 const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
 const SLOT_BG = {
@@ -45,6 +46,7 @@ function scoreSlot(hours, location) {
     mph: sustained,
     gust: Math.max(sustained, gust),
     dir: windDirectionLabel(maxWindHour.wind_direction_10m),
+    effectiveWind: worstScore.effective_wind,
   }
 }
 
@@ -53,12 +55,21 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
+const BAR_TRACK = {
+  good: 'bg-black/10', playable: 'bg-black/10', skip: 'bg-black/10', blackout: 'bg-white/20',
+}
+const BAR_FILL = {
+  good: 'bg-green-500', playable: 'bg-yellow-500', skip: 'bg-red-400', blackout: 'bg-white/70',
+}
+const SEVERITY_MAX = 22
+
 function SlotBadge({ score, label }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50 px-2 py-1.5 text-center text-[10px] text-slate-300">—</div>
   }
+  const barPct = Math.min((score.effectiveWind ?? score.mph) / SEVERITY_MAX, 1) * 100
   return (
-    <div className={`flex-1 rounded-lg border px-2 py-1.5 ${SLOT_BG[score.verdict]}`}>
+    <div className={`flex-1 rounded-lg border px-2 pt-1.5 pb-2 ${SLOT_BG[score.verdict]}`}>
       <div className="flex items-center gap-1">
         <span className="text-sm leading-none">{ICON[score.verdict]}</span>
         <div className="min-w-0">
@@ -66,13 +77,17 @@ function SlotBadge({ score, label }) {
           <p className="text-xs font-medium leading-none mt-0.5">{score.mph} · g{score.gust} · {score.dir}</p>
         </div>
       </div>
+      <div className={`mt-1.5 h-1 rounded-full ${BAR_TRACK[score.verdict]}`}>
+        <div className={`h-full rounded-full ${BAR_FILL[score.verdict]}`} style={{ width: `${barPct}%` }} />
+      </div>
     </div>
   )
 }
 
-export default function LocationCard({ location, hourlyData, loading, onDelete, onSetBearing }) {
+export default function LocationCard({ location, hourlyData, loading, onDelete, onSetBearing, onEdit }) {
   const [expanded, setExpanded] = useState(false)
   const [showMap, setShowMap] = useState(false)
+  const [showEdit, setShowEdit] = useState(false)
 
   if (loading) {
     return (
@@ -111,6 +126,13 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
         <h2 className="font-semibold text-slate-800">{location.name}</h2>
         <div className="flex items-center gap-1">
           <button
+            onClick={() => setShowEdit(true)}
+            className="p-1 text-slate-300 hover:text-sky-500 transition-colors"
+            title="Edit court"
+          >
+            <Pencil size={14} />
+          </button>
+          <button
             onClick={() => setShowMap(true)}
             className="p-1 text-slate-300 hover:text-sky-500 transition-colors"
             title="Set court direction"
@@ -132,6 +154,14 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
           location={location}
           onSave={onSetBearing}
           onClose={() => setShowMap(false)}
+        />
+      )}
+
+      {showEdit && (
+        <EditLocationModal
+          location={location}
+          onSave={(id, patch) => { onEdit(id, patch); setShowEdit(false) }}
+          onClose={() => setShowEdit(false)}
         />
       )}
 
