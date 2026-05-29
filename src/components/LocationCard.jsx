@@ -92,8 +92,8 @@ function SlotBadge({ score }) {
         {score.mph}
         <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
       </p>
-      <div className="mt-2 h-1.5 rounded-full overflow-hidden relative" style={{ background: zoomedGradient(eff) }}>
-        <div className="absolute top-0 h-full w-[2px] bg-white/90" style={{ left: '50%', transform: 'translateX(-50%)' }} />
+      <div className="mt-2 h-3 rounded-full overflow-hidden relative" style={{ background: zoomedGradient(eff) }}>
+        <div className="absolute top-0 h-full w-[3px] bg-white/90" style={{ left: '50%', transform: 'translateX(-50%)' }} />
       </div>
     </div>
   )
