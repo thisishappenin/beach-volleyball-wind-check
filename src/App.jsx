@@ -3,9 +3,10 @@ import { Plus, RefreshCw, LogOut, User } from 'lucide-react'
 import LocationCard from './components/LocationCard'
 import AddLocationModal from './components/AddLocationModal'
 import AuthScreen from './components/AuthScreen'
-import { loadLocations, addLocation, removeLocation, updateLocation } from './lib/storage'
+import { loadLocations, addLocation, removeLocation, updateLocation, migrateGuestLocations, loadGuestRaw, saveGuestRaw } from './lib/storage'
 import { fetchWeather } from './lib/openmeteo'
-import { getSession, logout } from './lib/auth'
+import { onAuthChange, logout } from './lib/auth'
+import { supabase } from './lib/supabase'
 
 const SAMPLE_LOCATIONS = [
   { id: 'sample-1', name: 'Newland Beach', latitude: 33.6793, longitude: -118.0201, court_bearing_deg: 135, notes: null, active: true },
@@ -13,12 +14,15 @@ const SAMPLE_LOCATIONS = [
   { id: 'sample-3', name: 'Corona del Mar Beach', latitude: 33.5927, longitude: -117.8699, court_bearing_deg: 10, notes: null, active: true },
 ]
 
-function storageKey(accountId) {
-  return `beach_locations_v2_${accountId}`
+function displayName(session) {
+  if (!session) return null
+  const meta = session.user?.user_metadata
+  return meta?.display_name || meta?.full_name || session.user?.email?.split('@')[0] || 'Account'
 }
 
 export default function App() {
-  const [session, setSession] = useState(() => getSession())
+  const [session, setSession] = useState(null)
+  const [authReady, setAuthReady] = useState(false)
   const [showAuth, setShowAuth] = useState(false)
   const [locations, setLocations] = useState([])
   const [weather, setWeather] = useState({})
@@ -26,18 +30,31 @@ export default function App() {
   const [showAdd, setShowAdd] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
 
-  // Guest users get their own isolated storage slot
-  const accountId = session?.accountId ?? 'guest'
+  const userId = session?.user?.id ?? null
 
+  // Subscribe to auth state
   useEffect(() => {
-    let locs = loadLocations(accountId)
-    if (locs.length === 0) {
-      locs = SAMPLE_LOCATIONS
-      localStorage.setItem(storageKey(accountId), JSON.stringify(locs))
-    }
-    setLocations(locs.filter(l => l.active))
-    setWeather({})
-  }, [accountId])
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session)
+      setAuthReady(true)
+    })
+    return onAuthChange(setSession)
+  }, [])
+
+  // Load locations whenever auth resolves or user changes
+  useEffect(() => {
+    if (!authReady) return
+    loadLocations(userId).then(locs => {
+      if (locs.length === 0 && !userId) {
+        // Seed sample data for new guests
+        saveGuestRaw(SAMPLE_LOCATIONS)
+        setLocations(SAMPLE_LOCATIONS)
+      } else {
+        setLocations(locs.filter(l => l.active !== false))
+      }
+      setWeather({})
+    })
+  }, [userId, authReady])
 
   const fetchAllWeather = useCallback(async (locs) => {
     setLoadingIds(new Set(locs.map(l => l.id)))
@@ -62,25 +79,26 @@ export default function App() {
     if (locations.length > 0) fetchAllWeather(locations)
   }, [locations.map(l => l.id).join(',')])
 
-  const handleAdd = (locData) => {
-    const newLoc = addLocation(accountId, locData)
+  const handleAdd = async (locData) => {
+    const newLoc = await addLocation(userId, locData)
     setLocations(prev => [...prev, newLoc])
     setShowAdd(false)
+    fetchAllWeather([newLoc])
   }
 
-  const handleDelete = (id) => {
-    removeLocation(accountId, id)
+  const handleDelete = async (id) => {
+    await removeLocation(userId, id)
     setLocations(prev => prev.filter(l => l.id !== id))
     setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
   }
 
-  const handleSetBearing = (id, newBearing) => {
-    updateLocation(accountId, id, { court_bearing_deg: newBearing })
+  const handleSetBearing = async (id, newBearing) => {
+    await updateLocation(userId, id, { court_bearing_deg: newBearing })
     setLocations(prev => prev.map(l => l.id === id ? { ...l, court_bearing_deg: newBearing } : l))
   }
 
-  const handleEdit = (id, patch) => {
-    updateLocation(accountId, id, patch)
+  const handleEdit = async (id, patch) => {
+    await updateLocation(userId, id, patch)
     setLocations(prev => prev.map(l => l.id === id ? { ...l, ...patch } : l))
     if (patch.latitude !== undefined || patch.longitude !== undefined) {
       setWeather(prev => { const n = { ...prev }; delete n[id]; return n })
@@ -89,17 +107,21 @@ export default function App() {
     }
   }
 
-  const handleAuth = (newSession) => {
+  const handleAuth = async (newSession, isNewAccount) => {
+    if (isNewAccount && newSession?.user?.id) {
+      await migrateGuestLocations(newSession.user.id)
+    }
     setSession(newSession)
     setShowAuth(false)
   }
 
-  const handleLogout = () => {
-    logout()
+  const handleLogout = async () => {
+    await logout()
     setSession(null)
   }
 
   const anyLoading = loadingIds.size > 0
+  const name = displayName(session)
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-sky-100 to-blue-50">
@@ -110,8 +132,8 @@ export default function App() {
             <p className="text-xs text-slate-400 mt-0.5">8–11 AM · 4–7 PM · last 7 + next 7 days</p>
           </div>
           <div className="flex items-center gap-2">
-            {session && (
-              <span className="text-xs text-slate-500 hidden sm:block">{session.username}</span>
+            {name && (
+              <span className="text-xs text-slate-500 hidden sm:block">{name}</span>
             )}
             <button
               onClick={() => fetchAllWeather(locations)}

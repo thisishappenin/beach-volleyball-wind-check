@@ -1,63 +1,35 @@
-const ACCOUNTS_KEY = 'bvwc_accounts'
-const SESSION_KEY = 'bvwc_session'
+import { supabase } from './supabase'
 
-async function hashPassword(password) {
-  const encoded = new TextEncoder().encode(password)
-  const buffer = await crypto.subtle.digest('SHA-256', encoded)
-  return Array.from(new Uint8Array(buffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('')
-}
-
-function loadAccounts() {
-  try {
-    return JSON.parse(localStorage.getItem(ACCOUNTS_KEY) ?? '[]')
-  } catch {
-    return []
-  }
-}
-
-export function getSession() {
-  try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY))
-  } catch {
-    return null
-  }
-}
-
-export function logout() {
-  localStorage.removeItem(SESSION_KEY)
-}
-
-export async function login(username, password) {
-  const accounts = loadAccounts()
-  const account = accounts.find(a => a.username.toLowerCase() === username.toLowerCase().trim())
-  if (!account) throw new Error('Account not found')
-
-  const hash = await hashPassword(password)
-  if (hash !== account.passwordHash) throw new Error('Incorrect password')
-
-  const session = { accountId: account.id, username: account.username }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
+export async function getSession() {
+  const { data: { session } } = await supabase.auth.getSession()
   return session
 }
 
-export async function createAccount(username, password) {
-  const trimmed = username.trim()
-  if (!trimmed) throw new Error('Username cannot be empty')
-  if (password.length < 4) throw new Error('Password must be at least 4 characters')
+export function onAuthChange(callback) {
+  const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    callback(session)
+  })
+  return () => subscription.unsubscribe()
+}
 
-  const accounts = loadAccounts()
-  if (accounts.find(a => a.username.toLowerCase() === trimmed.toLowerCase())) {
-    throw new Error('Username already taken')
-  }
+export async function login(email, password) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+  if (error) throw new Error(error.message)
+  return data.session
+}
 
-  const hash = await hashPassword(password)
-  const account = { id: crypto.randomUUID(), username: trimmed, passwordHash: hash }
-  accounts.push(account)
-  localStorage.setItem(ACCOUNTS_KEY, JSON.stringify(accounts))
+export async function createAccount(email, password, displayName) {
+  const { data, error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { data: { display_name: displayName || email.split('@')[0] } },
+  })
+  if (error) throw new Error(error.message)
+  // If email confirmation is required, user will be null
+  if (!data.session) return { needsConfirmation: true }
+  return { session: data.session, isNew: true }
+}
 
-  const session = { accountId: account.id, username: trimmed }
-  localStorage.setItem(SESSION_KEY, JSON.stringify(session))
-  return session
+export async function logout() {
+  await supabase.auth.signOut()
 }
