@@ -12,11 +12,11 @@ const PLAY_WINDOWS = [
 //   skip (red)       — playable but windy; pick another day if you can.
 //   blackout         — unplayable.
 //
-// Calibrated to three ground-truth sessions at Huntington Beach Pier (PM), which the
-// gust-dominant effective wind ranks correctly in order of how they played:
-//   21 May 2026 — 13 sustained / 10 gusts (smooth) → eff 10.8 → "pretty good"        → yellow
-//   28 May 2026 — 11 sustained / 16 gusts (gusty)  → eff 13.1 → "edge of unplayable" → red (upper end)
-//   19 May 2026 — 16 sustained / 15 gusts (strong) → eff 14.3 → "completely unplayable" → blackout
+// Calibrated to three ground-truth sessions at Huntington Beach Pier (PM, court_bearing=125°),
+// which the gust-dominant effective wind ranks correctly in order of how they played:
+//   21 May 2026 — 13 sustained / 10 gusts (smooth) → eff 10.6 → "pretty good"        → yellow
+//   28 May 2026 — 11 sustained / 16 gusts (gusty)  → eff 13.0 → "edge of unplayable" → red (upper end)
+//   19 May 2026 — 16 sustained / 15 gusts (strong) → eff 14.1 → "completely unplayable" → blackout
 // "Pretty good" is yellow, not green — green is for genuinely calm days (which is why
 // HB mornings read green and the usual afternoon sea breeze reads yellow).
 export const WIND_BANDS = {
@@ -58,7 +58,7 @@ export function scoreHour(hourData, location) {
   // an 11 mph average spiking to 15 play completely differently. So the "effective" wind
   // is gust-dominant. Gusts are used raw: they reach ground level unattenuated and swirl,
   // so neither the height (×0.83 upstream) nor the direction discount applies to them.
-  // GUST_WEIGHT calibrated to HB Pier, 28 May 2026 PM (11 sustained / 15 gusts → ~12.7,
+  // GUST_WEIGHT calibrated to HB Pier, 28 May 2026 PM (11 sustained / 16 gusts, court_bearing=125° → ~13.0,
   // upper-half of `skip`, a couple mph below blackout — "bad but playable, near the edge").
   const GUST_WEIGHT = 0.6
   const effective_wind = GUST_WEIGHT * gust_mph + (1 - GUST_WEIGHT) * adj_sustained

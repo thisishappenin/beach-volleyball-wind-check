@@ -10,7 +10,7 @@ import { supabase } from './lib/supabase'
 
 const SAMPLE_LOCATIONS = [
   { id: 'sample-1', name: 'Newland Beach', latitude: 33.6793, longitude: -118.0201, court_bearing_deg: 135, notes: null, active: true },
-  { id: 'sample-2', name: 'Huntington Beach Pier', latitude: 33.6553, longitude: -118.0018, court_bearing_deg: 135, notes: null, active: true },
+  { id: 'sample-2', name: 'Huntington Beach Pier', latitude: 33.6553, longitude: -118.0018, court_bearing_deg: 125, notes: null, active: true },
   { id: 'sample-3', name: 'Corona del Mar Beach', latitude: 33.5927, longitude: -117.8699, court_bearing_deg: 10, notes: null, active: true },
 ]
 
