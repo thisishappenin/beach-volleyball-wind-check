@@ -59,11 +59,10 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Green compressed to 20% (distinctions within green don't matter much).
-// Yellow 30%, Red 50% — more space where real decisions happen.
-// Blackout: yellow 20%, red 30%, dark 50%.
-const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 20%, #fde68a 20%, #fde68a 50%, #fca5a5 50%, #fca5a5 100%)'
-const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 20%, #fca5a5 20%, #fca5a5 50%, #cbd5e1 50%)'
+// Green 20%, Yellow 40%, Red 40% — wider yellow for more differentiation in the playable range.
+// Blackout: yellow 30%, red 30%, dark 40%.
+const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 20%, #fde68a 20%, #fde68a 60%, #fca5a5 60%, #fca5a5 100%)'
+const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 30%, #fca5a5 30%, #fca5a5 60%, #cbd5e1 60%)'
 
 // Band edges drive both the verdict and the bar, so derive the tick from WIND_BANDS
 // to keep them from drifting apart.
@@ -73,13 +72,13 @@ const S = WIND_BANDS.skip.wind      // skip ceiling   (red ends / blackout begin
 
 function normalTick(eff) {
   if (eff <= G) return (eff / G) * 20
-  if (eff <= P) return 20 + ((eff - G) / (P - G)) * 30
-  return Math.min(50 + ((eff - P) / (S - P)) * 50, 100)
+  if (eff <= P) return 20 + ((eff - G) / (P - G)) * 40
+  return Math.min(60 + ((eff - P) / (S - P)) * 40, 100)
 }
 function blackoutTick(eff) {
-  if (eff <= P) return Math.max((eff - G) / (P - G), 0) * 20
-  if (eff <= S) return 20 + ((eff - P) / (S - P)) * 30
-  return Math.min(50 + ((eff - S) / 10) * 50, 100)
+  if (eff <= P) return Math.max((eff - G) / (P - G), 0) * 30
+  if (eff <= S) return 30 + ((eff - P) / (S - P)) * 30
+  return Math.min(60 + ((eff - S) / 10) * 40, 100)
 }
 
 function SlotBadge({ score, mobileCondensed }) {
@@ -98,6 +97,7 @@ function SlotBadge({ score, mobileCondensed }) {
            style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
     </div>
   )
+  const scoreLabel = <><span className="font-bold">{score.playScore}</span><span className="font-normal">/10</span></>
   return (
     <div className={`flex-1 rounded-lg border ${SLOT_BG[score.verdict]} ${
       mobileCondensed
@@ -105,15 +105,15 @@ function SlotBadge({ score, mobileCondensed }) {
         : 'px-3 pt-2.5 pb-3'
     }`}>
       <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>
-        <p className="text-sm font-bold leading-none mb-1.5">{score.playScore}/10</p>
+        <p className="text-sm leading-none mb-1.5 text-right">{scoreLabel}</p>
         {band}
       </div>
       <div className={mobileCondensed ? 'hidden md:block' : ''}>
-        <p className="text-sm font-bold leading-none">
-          {score.playScore}/10
-          <span className="font-normal text-xs opacity-60 ml-2">{score.mph} g{score.gust}</span>
-        </p>
-        <div className="mt-2">{band}</div>
+        <div className="flex justify-between items-baseline mb-2">
+          <span className="text-xs font-normal opacity-60">{score.mph} g{score.gust}</span>
+          <span className="text-sm leading-none">{scoreLabel}</span>
+        </div>
+        {band}
       </div>
     </div>
   )
