@@ -81,8 +81,6 @@ function blackoutTick(eff) {
   return Math.min(50 + ((eff - S) / 10) * 50, 100)
 }
 
-const ICON = { good: '👍', playable: '🟡', skip: '👎', blackout: '⛔' }
-
 function SlotBadge({ score, mobileCondensed }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
@@ -92,19 +90,26 @@ function SlotBadge({ score, mobileCondensed }) {
   const raw = isBlackout ? blackoutTick(eff) : normalTick(eff)
   // Clamp away from edges so tick stays visible inside the rounded corners
   const tickPct = Math.min(Math.max(raw, 5), 95)
+  const band = (
+    <div className="h-3 rounded-full overflow-hidden relative"
+         style={{ background: isBlackout ? BLACKOUT_GRADIENT : NORMAL_GRADIENT }}>
+      <div className="absolute top-0 h-full w-[3px] bg-white/90"
+           style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
+    </div>
+  )
   return (
-    <div className={`flex-1 rounded-lg border ${mobileCondensed ? 'py-2 px-2 flex items-center justify-center md:block md:px-3 md:pt-2.5 md:pb-3' : 'px-3 pt-2.5 pb-3'} ${SLOT_BG[score.verdict]}`}>
-      <span className={`text-base leading-none ${mobileCondensed ? 'md:hidden' : 'hidden'}`}>{ICON[score.verdict]}</span>
+    <div className={`flex-1 rounded-lg border ${SLOT_BG[score.verdict]} ${
+      mobileCondensed
+        ? 'py-3 px-2 flex items-center md:block md:px-3 md:pt-2.5 md:pb-3'
+        : 'px-3 pt-2.5 pb-3'
+    }`}>
+      <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>{band}</div>
       <div className={mobileCondensed ? 'hidden md:block' : ''}>
         <p className="text-sm font-bold leading-none">
           {score.mph}
           <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
         </p>
-        <div className="mt-2 h-3 rounded-full overflow-hidden relative"
-             style={{ background: isBlackout ? BLACKOUT_GRADIENT : NORMAL_GRADIENT }}>
-          <div className="absolute top-0 h-full w-[3px] bg-white/90"
-               style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
-        </div>
+        <div className="mt-2">{band}</div>
       </div>
     </div>
   )
