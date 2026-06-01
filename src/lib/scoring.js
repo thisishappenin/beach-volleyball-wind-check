@@ -146,4 +146,24 @@ function formatHour(date) {
   return `${h - 12} PM`
 }
 
+// Continuous 0–10 playability score derived from verdict + effective wind position
+// within that band. Scores are consistent across band boundaries (e.g. both sides of
+// the good/playable line give 7 at the exact threshold).
+//   good     → 10 at 0 mph, 7 at the good ceiling
+//   playable → 7 → 4
+//   skip     → 4 → 2
+//   blackout → 2 → 0
+export function playabilityScore(verdict, effectiveWind) {
+  const G = WIND_BANDS.good.wind      // 8
+  const P = WIND_BANDS.playable.wind  // 12
+  const S = WIND_BANDS.skip.wind      // 13.5
+  if (verdict === 'good')
+    return Math.round(10 - Math.min(effectiveWind / G, 1) * 3)
+  if (verdict === 'playable')
+    return Math.round(7 - Math.min((effectiveWind - G) / (P - G), 1) * 3)
+  if (verdict === 'skip')
+    return Math.round(4 - Math.min((effectiveWind - P) / (S - P), 1) * 2)
+  return Math.round(Math.max(0, 2 - Math.min((effectiveWind - S) / 6.5, 1) * 2))
+}
+
 export { formatHour }

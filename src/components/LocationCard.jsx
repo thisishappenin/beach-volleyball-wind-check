@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Trash2, ChevronDown, ChevronUp, Compass, Pencil } from 'lucide-react'
-import { scoreHour, windDirectionLabel, WIND_BANDS } from '../lib/scoring'
+import { scoreHour, windDirectionLabel, WIND_BANDS, playabilityScore } from '../lib/scoring'
 import CourtMapModal from './CourtMapModal'
 import EditLocationModal from './EditLocationModal'
 
@@ -50,6 +50,7 @@ function scoreSlot(hours, location) {
     gust: Math.max(sustained, gust),
     dir: windDirectionLabel(worst.h.wind_direction_10m),
     effectiveWind: worst.s.effective_wind,
+    playScore: playabilityScore(worst.s.verdict, worst.s.effective_wind),
   }
 }
 
@@ -103,11 +104,14 @@ function SlotBadge({ score, mobileCondensed }) {
         ? 'py-3 px-2 flex items-center md:block md:px-3 md:pt-2.5 md:pb-3'
         : 'px-3 pt-2.5 pb-3'
     }`}>
-      <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>{band}</div>
+      <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>
+        <p className="text-sm font-bold leading-none mb-1.5">{score.playScore}/10</p>
+        {band}
+      </div>
       <div className={mobileCondensed ? 'hidden md:block' : ''}>
         <p className="text-sm font-bold leading-none">
-          {score.mph}
-          <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
+          {score.playScore}/10
+          <span className="font-normal text-xs opacity-60 ml-2">{score.mph} g{score.gust}</span>
         </p>
         <div className="mt-2">{band}</div>
       </div>

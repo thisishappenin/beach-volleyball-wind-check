@@ -198,6 +198,31 @@ export default function App() {
             {' · '}Cached 30 min
           </p>
         )}
+
+        {/* Legend */}
+        <div className="mt-8 border-t border-slate-200 pt-5 text-xs text-slate-500 max-w-sm mx-auto">
+          <p className="font-semibold text-slate-600 mb-3">How to read the scores</p>
+          <div className="flex flex-col gap-2">
+            {[
+              { bg: 'bg-green-100', border: 'border-green-400', label: 'Green', range: '7–10', desc: 'Calm — great day to play' },
+              { bg: 'bg-amber-100', border: 'border-amber-400', label: 'Yellow', range: '4–6', desc: 'Playable — expect a breeze' },
+              { bg: 'bg-red-50',    border: 'border-red-200',   label: 'Red',    range: '2–3', desc: 'Windy — consider skipping' },
+              { bg: 'bg-slate-100', border: 'border-slate-200', label: 'Grey',   range: '0–1', desc: 'Too windy — don\'t play' },
+            ].map(({ bg, border, label, range, desc }) => (
+              <div key={label} className="flex items-center gap-2.5">
+                <div className={`w-3.5 h-3.5 rounded shrink-0 border ${bg} ${border}`} />
+                <span>
+                  <span className="font-medium text-slate-600">{label} · {range}/10</span>
+                  {' — '}{desc}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-slate-400 leading-relaxed">
+            Score is 0–10: 10 = perfect conditions, 0 = unplayable. Calculated from wind speed,
+            gusts, and court orientation.
+          </p>
+        </div>
       </div>
 
       {showAdd && (
