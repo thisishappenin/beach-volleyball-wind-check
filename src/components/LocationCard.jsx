@@ -81,7 +81,7 @@ function blackoutTick(eff) {
   return Math.min(60 + ((eff - S) / 10) * 40, 100)
 }
 
-function SlotBadge({ score, mobileCondensed }) {
+function SlotBadge({ score, mobileCondensed, leftAlign }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
@@ -105,11 +105,11 @@ function SlotBadge({ score, mobileCondensed }) {
         : 'px-3 pt-2.5 pb-3'
     }`}>
       <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>
-        <p className="text-sm leading-none mb-1.5 text-right">{scoreLabel}</p>
+        <p className={`text-sm leading-none mb-1.5 ${leftAlign ? 'text-left' : 'text-right'}`}>{scoreLabel}</p>
         {band}
       </div>
       <div className={mobileCondensed ? 'hidden md:block' : ''}>
-        <div className="flex justify-between items-baseline mb-2">
+        <div className={`flex justify-between items-baseline mb-2 ${leftAlign ? 'flex-row-reverse' : ''}`}>
           <span className="text-xs font-normal opacity-60">{score.mph} g{score.gust}</span>
           <span className="text-sm leading-none">{scoreLabel}</span>
         </div>
@@ -246,7 +246,7 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
-              <SlotBadge score={morning} mobileCondensed={condensed} />
+              <SlotBadge score={morning} mobileCondensed={condensed} leftAlign />
               <SlotBadge score={afternoon} mobileCondensed={condensed} />
             </div>
           )
