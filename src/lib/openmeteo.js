@@ -37,13 +37,17 @@ export async function fetchWeather(lat, lon) {
       .filter(h => h?.wind_speed_10m != null)
     if (candidates.length === 0) return null
 
-    // Consensus average across available models. Pure max was too aggressive —
-    // 3-model spread alone can be 3–5 mph, so max almost always shows the worst
-    // outlier. Averaging still skews higher than HRRR alone (ECMWF and GFS both
-    // tend to predict stronger sea breeze than HRRR), without crying wolf every day.
-    const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length
-    const avgSustained = avg(candidates.map(h => h.wind_speed_10m))
-    const avgGust      = avg(candidates.map(h => h.wind_gusts_10m ?? h.wind_speed_10m))
+    // Median across available models. Average was vulnerable to a single model being
+    // wildly off (e.g. ECMWF swinging 5–8 mph from reality on a given day skews the
+    // whole result). Median picks the middle value, so one outlier gets outvoted while
+    // still skewing slightly higher than HRRR alone on days all models agree.
+    const median = arr => {
+      const s = [...arr].sort((a, b) => a - b)
+      const m = Math.floor(s.length / 2)
+      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
+    }
+    const avgSustained = median(candidates.map(h => h.wind_speed_10m))
+    const avgGust      = median(candidates.map(h => h.wind_gusts_10m ?? h.wind_speed_10m))
     const windiest = candidates.reduce((a, b) => a.wind_speed_10m >= b.wind_speed_10m ? a : b)
 
     return {
