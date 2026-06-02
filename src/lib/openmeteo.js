@@ -2,9 +2,15 @@ const cache = new Map()
 const CACHE_TTL_MS = 30 * 60 * 1000 // 30 min
 
 // Scale 10m mean wind to ~2m (player height) via log wind profile over smooth sand.
-// ln(2/0.001) / ln(10/0.001) ≈ 0.83. Applied to sustained only — gusts are turbulent
-// bursts that penetrate to ground level and should not be attenuated this way.
+// ln(2/0.001) / ln(10/0.001) ≈ 0.83. Applied to sustained only — see GUST_CORRECTION below.
 const SUSTAINED_CORRECTION = 0.83
+
+// HRRR systematically over-predicts gusts at this coastal SoCal site by ~1.15–1.2×.
+// Calibrated against three ground-truth sessions (HB Pier, court_bearing=125°) plus a
+// fourth data point (Jun 2026: HRRR 15 mph vs observed 9 mph). 0.85 is the only value
+// that correctly classifies all four sessions. Unlike sustained, gusts are not attenuated
+// by height — this factor corrects model bias only, not a physical height correction.
+const GUST_CORRECTION = 0.85
 
 export async function fetchWeather(lat, lon) {
   const key = `${lat},${lon}`
@@ -62,7 +68,7 @@ async function fetchModel(lat, lon, model, forecastDays) {
       return {
         time,
         wind_speed_10m: raw_speed != null ? raw_speed * SUSTAINED_CORRECTION : null,
-        wind_gusts_10m: raw_gust != null ? raw_gust : null,
+        wind_gusts_10m: raw_gust != null ? raw_gust * GUST_CORRECTION : null,
         wind_direction_10m: json.hourly.wind_direction_10m[i],
         temperature_2m: json.hourly.temperature_2m[i],
         precipitation_probability: json.hourly.precipitation_probability[i],
