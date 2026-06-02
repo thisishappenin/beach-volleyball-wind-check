@@ -3,6 +3,7 @@ import { Trash2, ChevronDown, ChevronUp, Compass, Pencil } from 'lucide-react'
 import { scoreHour, windDirectionLabel, WIND_BANDS } from '../lib/scoring'
 import CourtMapModal from './CourtMapModal'
 import EditLocationModal from './EditLocationModal'
+import RatingModal from './RatingModal'
 
 const SLOT_BG = {
   good:     'bg-green-100 border-green-400 text-green-900',
@@ -81,7 +82,7 @@ function blackoutTick(eff) {
   return Math.min(50 + ((eff - S) / 10) * 50, 100)
 }
 
-function SlotBadge({ score, mobileCondensed }) {
+function SlotBadge({ score, mobileCondensed, leftAlign, userRating, canRate, onClick }) {
   if (!score) {
     return <div className="flex-1 rounded-lg border border-slate-100 bg-slate-50" />
   }
@@ -97,28 +98,49 @@ function SlotBadge({ score, mobileCondensed }) {
            style={{ left: `${tickPct}%`, transform: 'translateX(-50%)' }} />
     </div>
   )
+  const scoreLabel = <><span className="font-bold">{score.playScore}</span><span className="font-normal">/10</span></>
+  const userLine = userRating
+    ? <p className={`text-xs mt-1.5 opacity-70 ${leftAlign ? 'text-left' : 'text-right'}`}>
+        You: {userRating.rating}/10 · {userRating.would_play ? 'Would play' : 'Would skip'}
+      </p>
+    : canRate
+      ? <p className={`text-xs mt-1.5 opacity-30 ${leftAlign ? 'text-left' : 'text-right'}`}>Tap to log</p>
+      : null
+
   return (
-    <div className={`flex-1 rounded-lg border ${SLOT_BG[score.verdict]} ${
-      mobileCondensed
-        ? 'py-3 px-2 flex items-center md:block md:px-3 md:pt-2.5 md:pb-3'
-        : 'px-3 pt-2.5 pb-3'
-    }`}>
-      <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>{band}</div>
+    <div
+      onClick={canRate ? onClick : undefined}
+      className={`flex-1 rounded-lg border ${SLOT_BG[score.verdict]} ${
+        mobileCondensed
+          ? 'py-3 px-2 flex items-center md:block md:px-3 md:pt-2.5 md:pb-3'
+          : 'px-3 pt-2.5 pb-3'
+      } ${canRate ? 'cursor-pointer active:opacity-80' : ''}`}
+    >
+      <div className={mobileCondensed ? 'w-full md:hidden' : 'hidden'}>
+        <p className={`text-sm leading-none mb-1.5 ${leftAlign ? 'text-left' : 'text-right'}`}>{scoreLabel}</p>
+        {band}
+        {userLine}
+      </div>
       <div className={mobileCondensed ? 'hidden md:block' : ''}>
-        <p className="text-sm font-bold leading-none">
-          {score.mph}
-          <span className="font-normal text-xs opacity-60 ml-1">g{score.gust}</span>
-        </p>
-        <div className="mt-2">{band}</div>
+        <div className={`flex justify-between items-baseline mb-2 ${leftAlign ? 'flex-row-reverse' : ''}`}>
+          <span className="text-xs font-normal opacity-60">{score.mph} g{score.gust}</span>
+          <span className="text-sm leading-none">{scoreLabel}</span>
+        </div>
+        {band}
+        {userLine}
       </div>
     </div>
   )
 }
 
-export default function LocationCard({ location, hourlyData, loading, onDelete, onSetBearing, onEdit }) {
+export default function LocationCard({ location, hourlyData, loading, onDelete, onSetBearing, onEdit, ratings, onRate }) {
   const [expanded, setExpanded] = useState(false)
   const [showMap, setShowMap] = useState(false)
   const [showEdit, setShowEdit] = useState(false)
+  const [ratingTarget, setRatingTarget] = useState(null) // {dateStr, slot, modelScore}
+
+  // Lookup: "YYYY-MM-DD:morning" | "YYYY-MM-DD:afternoon" → rating entry
+  const ratingMap = new Map((ratings ?? []).map(r => [`${r.date}:${r.slot}`, r]))
 
   if (loading) {
     return (
@@ -203,6 +225,21 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
         />
       )}
 
+      {ratingTarget && (
+        <RatingModal
+          location={location}
+          date={ratingTarget.dateStr}
+          slot={ratingTarget.slot}
+          modelScore={ratingTarget.modelScore}
+          existing={ratingMap.get(`${ratingTarget.dateStr}:${ratingTarget.slot}`) ?? null}
+          onSave={(rating, wouldPlay) => {
+            onRate(location.id, ratingTarget.dateStr, ratingTarget.slot, rating, wouldPlay, ratingTarget.modelScore)
+            setRatingTarget(null)
+          }}
+          onClose={() => setRatingTarget(null)}
+        />
+      )}
+
       {/* Column labels */}
       <div className="flex items-center gap-2 px-4 py-1.5 bg-slate-50 border-b border-slate-100">
         <div className="w-24 shrink-0" />
@@ -230,6 +267,10 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
 
           const bothBlackout = morning?.verdict === 'blackout' && afternoon?.verdict === 'blackout'
 
+          const canRate = dateStr <= todayStr
+          const morningRating = ratingMap.get(`${dateStr}:morning`) ?? null
+          const afternoonRating = ratingMap.get(`${dateStr}:afternoon`) ?? null
+
           return (
             <div
               key={dateStr}
@@ -242,8 +283,21 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
                   {isToday ? '▶ Today' : dayLabel(dateStr)}
                 </p>
               </div>
-              <SlotBadge score={morning} mobileCondensed={condensed} />
-              <SlotBadge score={afternoon} mobileCondensed={condensed} />
+              <SlotBadge
+                score={morning}
+                mobileCondensed={condensed}
+                leftAlign
+                canRate={canRate}
+                userRating={morningRating}
+                onClick={() => setRatingTarget({ dateStr, slot: 'morning', modelScore: morning?.playScore ?? null })}
+              />
+              <SlotBadge
+                score={afternoon}
+                mobileCondensed={condensed}
+                canRate={canRate}
+                userRating={afternoonRating}
+                onClick={() => setRatingTarget({ dateStr, slot: 'afternoon', modelScore: afternoon?.playScore ?? null })}
+              />
             </div>
           )
         })}

@@ -67,3 +67,42 @@ export async function migrateGuestLocations(userId) {
 // Guest helpers used by App for seeding sample data
 export function loadGuestRaw() { return loadGuest() }
 export function saveGuestRaw(locs) { saveGuest(locs) }
+
+// ─── Session ratings ───────────────────────────────────────────────────────
+
+const RATINGS_KEY = 'beach_ratings_v1'
+
+function loadGuestRatings() {
+  try { return JSON.parse(localStorage.getItem(RATINGS_KEY) ?? '[]') } catch { return [] }
+}
+function saveGuestRatings(ratings) {
+  localStorage.setItem(RATINGS_KEY, JSON.stringify(ratings))
+}
+
+export async function loadRatings(userId) {
+  if (!userId) return loadGuestRatings()
+  const { data } = await supabase
+    .from('session_ratings')
+    .select('*')
+    .order('created_at', { ascending: false })
+  return data ?? []
+}
+
+export async function saveRating(userId, { location_id, date, slot, rating, would_play, model_score }) {
+  if (!userId) {
+    const all = loadGuestRatings()
+    const idx = all.findIndex(r => r.location_id === location_id && r.date === date && r.slot === slot)
+    const entry = { location_id, date, slot, rating, would_play, model_score }
+    if (idx >= 0) {
+      all[idx] = { ...all[idx], ...entry, updated_at: new Date().toISOString() }
+    } else {
+      all.unshift({ ...entry, id: crypto.randomUUID(), created_at: new Date().toISOString() })
+    }
+    saveGuestRatings(all)
+    return
+  }
+  await supabase.from('session_ratings').upsert(
+    { user_id: userId, location_id, date, slot, rating, would_play, model_score, updated_at: new Date().toISOString() },
+    { onConflict: 'user_id,location_id,date,slot' }
+  )
+}

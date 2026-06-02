@@ -3,7 +3,7 @@ import { Plus, RefreshCw, LogOut, User } from 'lucide-react'
 import LocationCard from './components/LocationCard'
 import AddLocationModal from './components/AddLocationModal'
 import AuthScreen from './components/AuthScreen'
-import { loadLocations, addLocation, removeLocation, updateLocation, migrateGuestLocations, loadGuestRaw, saveGuestRaw } from './lib/storage'
+import { loadLocations, addLocation, removeLocation, updateLocation, migrateGuestLocations, loadGuestRaw, saveGuestRaw, loadRatings, saveRating } from './lib/storage'
 import { fetchWeather } from './lib/openmeteo'
 import { onAuthChange, logout } from './lib/auth'
 import { supabase } from './lib/supabase'
@@ -29,6 +29,7 @@ export default function App() {
   const [loadingIds, setLoadingIds] = useState(new Set())
   const [showAdd, setShowAdd] = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
+  const [ratings, setRatings] = useState([])
 
   const userId = session?.user?.id ?? null
 
@@ -41,12 +42,11 @@ export default function App() {
     return onAuthChange(setSession)
   }, [])
 
-  // Load locations whenever auth resolves or user changes
+  // Load locations + ratings whenever auth resolves or user changes
   useEffect(() => {
     if (!authReady) return
     loadLocations(userId).then(locs => {
       if (locs.length === 0 && !userId) {
-        // Seed sample data for new guests
         saveGuestRaw(SAMPLE_LOCATIONS)
         setLocations(SAMPLE_LOCATIONS)
       } else {
@@ -54,7 +54,22 @@ export default function App() {
       }
       setWeather({})
     })
+    loadRatings(userId).then(setRatings)
   }, [userId, authReady])
+
+  const handleRate = async (locationId, date, slot, rating, wouldPlay, modelScore) => {
+    await saveRating(userId, { location_id: locationId, date, slot, rating, would_play: wouldPlay, model_score: modelScore })
+    setRatings(prev => {
+      const idx = prev.findIndex(r => r.location_id === locationId && r.date === date && r.slot === slot)
+      const entry = { location_id: locationId, date, slot, rating, would_play: wouldPlay, model_score: modelScore }
+      if (idx >= 0) {
+        const next = [...prev]
+        next[idx] = { ...next[idx], ...entry }
+        return next
+      }
+      return [{ ...entry, id: crypto.randomUUID(), created_at: new Date().toISOString() }, ...prev]
+    })
+  }
 
   const fetchAllWeather = useCallback(async (locs) => {
     setLoadingIds(new Set(locs.map(l => l.id)))
@@ -181,6 +196,8 @@ export default function App() {
               onDelete={handleDelete}
               onSetBearing={handleSetBearing}
               onEdit={handleEdit}
+              ratings={ratings.filter(r => r.location_id === loc.id)}
+              onRate={handleRate}
             />
           ))}
         </div>
