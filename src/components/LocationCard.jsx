@@ -60,26 +60,26 @@ function dayLabel(dateStr) {
   return new Date(y, m - 1, d).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 }
 
-// Green 20%, Yellow 40%, Red 40% — wider yellow for more differentiation in the playable range.
-// Blackout: yellow 30%, red 30%, dark 40%.
-const NORMAL_GRADIENT   = 'linear-gradient(to right, #86efac 0%, #86efac 20%, #fde68a 20%, #fde68a 60%, #fca5a5 60%, #fca5a5 100%)'
-const BLACKOUT_GRADIENT = 'linear-gradient(to right, #fde68a 0%, #fde68a 30%, #fca5a5 30%, #fca5a5 60%, #cbd5e1 60%)'
+// Red 40%, Yellow 40%, Green 20% — green on right aligns with 10/10 being best.
+// Blackout: dark 40%, red 30%, yellow 30% — dark extends off the left edge when not needed.
+const NORMAL_GRADIENT   = 'linear-gradient(to right, #fca5a5 0%, #fca5a5 40%, #fde68a 40%, #fde68a 80%, #86efac 80%, #86efac 100%)'
+const BLACKOUT_GRADIENT = 'linear-gradient(to right, #cbd5e1 0%, #cbd5e1 40%, #fca5a5 40%, #fca5a5 70%, #fde68a 70%, #fde68a 100%)'
 
 // Band edges drive both the verdict and the bar, so derive the tick from WIND_BANDS
 // to keep them from drifting apart.
-const G = WIND_BANDS.good.wind      // good ceiling   (green ends)
+const G = WIND_BANDS.good.wind      // good ceiling   (green starts)
 const P = WIND_BANDS.playable.wind  // playable ceiling (yellow ends)
 const S = WIND_BANDS.skip.wind      // skip ceiling   (red ends / blackout begins)
 
 function normalTick(eff) {
-  if (eff <= G) return (eff / G) * 20
-  if (eff <= P) return 20 + ((eff - G) / (P - G)) * 40
-  return Math.min(60 + ((eff - P) / (S - P)) * 40, 100)
+  if (eff <= G) return 100 - (eff / G) * 20
+  if (eff <= P) return 100 - (20 + ((eff - G) / (P - G)) * 40)
+  return 100 - Math.min(60 + ((eff - P) / (S - P)) * 40, 100)
 }
 function blackoutTick(eff) {
-  if (eff <= P) return Math.max((eff - G) / (P - G), 0) * 30
-  if (eff <= S) return 30 + ((eff - P) / (S - P)) * 30
-  return Math.min(60 + ((eff - S) / 10) * 40, 100)
+  if (eff <= P) return 100 - Math.max((eff - G) / (P - G), 0) * 30
+  if (eff <= S) return 100 - (30 + ((eff - P) / (S - P)) * 30)
+  return 100 - Math.min(60 + ((eff - S) / 10) * 40, 100)
 }
 
 function SlotBadge({ score, mobileCondensed, leftAlign, userRating, canRate, onClick }) {
