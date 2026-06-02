@@ -11,54 +11,28 @@ export async function fetchWeather(lat, lon) {
   const cached = cache.get(key)
   if (cached && Date.now() - cached.ts < CACHE_TTL_MS) return cached.data
 
-  // Three models in parallel — each has a documented blind spot for SoCal afternoon
-  // sea breeze; worst-case across all three hedges against any single model's bias:
-  //   gfs_hrrr:     3 km, best short-range resolution, but marine layer cloud tops run
-  //                 ~150 m too low → suppresses afternoon land heating → documented low
-  //                 bias on sea breeze peak (Sheridan et al. 2025). 48 h limit.
-  //   ecmwf_ifs025: 28 km, coarser but better synoptic pressure gradients that set up
-  //                 the sea breeze; captures the large-scale forcing HRRR can miss.
-  //   gfs_seamless: HRRR for 0–48 h, GFS beyond — avoids the HRRR cloud bias and
-  //                 provides continuity past 48 h.
-  const [hrrrData, ecmwfData, gfsData] = await Promise.all([
+  // Two fetches in parallel: HRRR (3 km, 48 h) + best_match (7-day fallback).
+  // HRRR wins for hours where it has data; best_match fills the rest.
+  //
+  // Note: a 3-model ensemble (HRRR + ECMWF + GFS Seamless) was tried to address
+  // HRRR's documented afternoon sea-breeze low bias (Sheridan et al. 2025), but
+  // ECMWF and GFS consistently over-predict surface wind at this coastal site by
+  // 2–4 mph on typical days. Because WIND_BANDS are calibrated to HRRR output,
+  // the ensemble median pushed most days into skip/blackout regardless of actual
+  // conditions. Re-introducing multi-model would require recalibrating the bands
+  // against matched ECMWF/GFS session data first.
+  const [hrrrData, fallbackData] = await Promise.all([
     fetchModel(lat, lon, 'gfs_hrrr', 2),
-    fetchModel(lat, lon, 'ecmwf_ifs025', 7),
-    fetchModel(lat, lon, 'gfs_seamless', 7),
+    fetchModel(lat, lon, 'best_match', 7),
   ])
 
+  // Prefer HRRR rows when available (non-null wind); best_match fills days 3–7.
   const hrrrMap = new Map(hrrrData.map(h => [h.time, h]))
-  const ecmwfMap = new Map(ecmwfData.map(h => [h.time, h]))
-  const gfsMap   = new Map(gfsData.map(h => [h.time, h]))
-
-  // GFS seamless + ECMWF together cover the full 7-day hourly backbone.
-  const allTimes = new Set([...gfsData.map(h => h.time), ...ecmwfData.map(h => h.time)])
-  const data = [...allTimes].sort().map(time => {
-    const candidates = [hrrrMap.get(time), ecmwfMap.get(time), gfsMap.get(time)]
-      .filter(h => h?.wind_speed_10m != null)
-    if (candidates.length === 0) return null
-
-    // Median across available models. Average was vulnerable to a single model being
-    // wildly off (e.g. ECMWF swinging 5–8 mph from reality on a given day skews the
-    // whole result). Median picks the middle value, so one outlier gets outvoted while
-    // still skewing slightly higher than HRRR alone on days all models agree.
-    const median = arr => {
-      const s = [...arr].sort((a, b) => a - b)
-      const m = Math.floor(s.length / 2)
-      return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
-    }
-    const avgSustained = median(candidates.map(h => h.wind_speed_10m))
-    const avgGust      = median(candidates.map(h => h.wind_gusts_10m ?? h.wind_speed_10m))
-    const windiest = candidates.reduce((a, b) => a.wind_speed_10m >= b.wind_speed_10m ? a : b)
-
-    return {
-      time,
-      wind_speed_10m:           avgSustained,
-      wind_gusts_10m:           avgGust,
-      wind_direction_10m:       windiest.wind_direction_10m,
-      temperature_2m:           windiest.temperature_2m,
-      precipitation_probability: Math.max(...candidates.map(h => h.precipitation_probability ?? 0)),
-    }
-  }).filter(Boolean)
+  const data = fallbackData.map(h =>
+    hrrrMap.has(h.time) && hrrrMap.get(h.time).wind_speed_10m != null
+      ? hrrrMap.get(h.time)
+      : h
+  )
 
   cache.set(key, { data, ts: Date.now() })
   return data
