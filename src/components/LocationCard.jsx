@@ -150,7 +150,9 @@ export default function LocationCard({ location, hourlyData, loading, onDelete, 
     )
   }
 
-  const todayStr = new Date().toISOString().slice(0, 10)
+  // Use local date, not UTC — toISOString() rolls over to tomorrow at midnight UTC
+  // which in LA (PDT/PST) is 5–4 PM local, making today vanish from the view mid-afternoon.
+  const todayStr = new Date().toLocaleDateString('en-CA') // en-CA gives YYYY-MM-DD
   const dayMap = groupByDay(hourlyData)
   const sortedDates = [...dayMap.keys()].sort()
 
