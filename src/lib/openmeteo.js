@@ -37,16 +37,19 @@ export async function fetchWeather(lat, lon) {
       .filter(h => h?.wind_speed_10m != null)
     if (candidates.length === 0) return null
 
-    // Worst-case: independently maximise sustained and gust across all models.
-    const maxSustained = Math.max(...candidates.map(h => h.wind_speed_10m))
-    const maxGust      = Math.max(...candidates.map(h => h.wind_gusts_10m ?? h.wind_speed_10m))
-    // Direction and non-wind fields from whichever model predicts the strongest wind.
+    // Consensus average across available models. Pure max was too aggressive —
+    // 3-model spread alone can be 3–5 mph, so max almost always shows the worst
+    // outlier. Averaging still skews higher than HRRR alone (ECMWF and GFS both
+    // tend to predict stronger sea breeze than HRRR), without crying wolf every day.
+    const avg = arr => arr.reduce((s, v) => s + v, 0) / arr.length
+    const avgSustained = avg(candidates.map(h => h.wind_speed_10m))
+    const avgGust      = avg(candidates.map(h => h.wind_gusts_10m ?? h.wind_speed_10m))
     const windiest = candidates.reduce((a, b) => a.wind_speed_10m >= b.wind_speed_10m ? a : b)
 
     return {
       time,
-      wind_speed_10m:           maxSustained,
-      wind_gusts_10m:           maxGust,
+      wind_speed_10m:           avgSustained,
+      wind_gusts_10m:           avgGust,
       wind_direction_10m:       windiest.wind_direction_10m,
       temperature_2m:           windiest.temperature_2m,
       precipitation_probability: Math.max(...candidates.map(h => h.precipitation_probability ?? 0)),
