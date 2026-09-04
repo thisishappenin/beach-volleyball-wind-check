@@ -11,13 +11,25 @@ function saveGuest(locs) {
 }
 
 export async function loadLocations(userId) {
-  if (!userId) return loadGuest()
-  const { data, error } = await supabase
-    .from('locations')
-    .select('*')
-    .order('created_at', { ascending: true })
-  if (error) throw error
-  return data
+  if (userId) {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (error) throw error
+    return data
+  }
+  // Guest: try Supabase public read first so visitors see the owner's beaches.
+  // Requires the "Public read all locations" RLS policy (002_public_read_locations.sql).
+  // Falls back to localStorage if the policy isn't applied yet or the request fails.
+  try {
+    const { data, error } = await supabase
+      .from('locations')
+      .select('*')
+      .order('created_at', { ascending: true })
+    if (!error && data && data.length > 0) return data
+  } catch {}
+  return loadGuest()
 }
 
 export async function addLocation(userId, loc) {
